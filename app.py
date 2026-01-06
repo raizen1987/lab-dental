@@ -6,6 +6,8 @@ from wtforms import StringField, SelectField, DateField, TextAreaField, SubmitFi
 from wtforms.validators import DataRequired
 from datetime import date
 from wtforms import StringField, SelectField, DateField, TextAreaField, SubmitField
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
@@ -13,6 +15,11 @@ app.config['SECRET_KEY'] = 'cambia_esta_clave_por_algo_muy_secreto_123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///trabajos.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'  # ruta del login
+login_manager.login_message = 'Por favor iniciá sesión para acceder.'
+login_manager.login_message_category = 'info'
 
 # ========================
 # MODELOS (actualizado)
@@ -43,6 +50,23 @@ class Trabajo(db.Model):
     fecha_entrada = db.Column(db.Date, default=date.today)
     fecha_entrega = db.Column(db.Date)
     notas = db.Column(db.Text)
+    
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)  # por ahora no lo usamos, pero queda para futuro
+    nombre = db.Column(db.String(100), nullable=False)  # para mostrar "Bienvenido Juan"
+
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # ========================
 # FORMULARIOS
@@ -69,13 +93,33 @@ class DoctorForm(FlaskForm):
 # ========================
 # RUTAS TRABAJOS
 # ========================
-
-@app.route('/')
+  
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    trabajos = Trabajo.query.all()
-    return render_template('index.html', trabajos=trabajos)
+    if current_user.is_authenticated:
+        # Ya logueado → muestra la lista de trabajos
+        trabajos = Trabajo.query.all()
+        return render_template('index.html', trabajos=trabajos)
+    
+    # No logueado → maneja el login
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+        
+        if user and bcrypt.check_password_hash(user.password_hash, password):
+            login_user(user)
+            flash(f'¡Bienvenido, {user.nombre}!', 'success')
+            trabajos = Trabajo.query.all()
+            return render_template('index.html', trabajos=trabajos)
+        else:
+            flash('Email o contraseña incorrecta', 'danger')
+    
+    # GET → muestra la pantalla de login
+    return render_template('login.html')
 
 @app.route('/agregar', methods=['GET', 'POST'])
+@login_required
 def agregar():
     form = TrabajoForm()
     form.doctor.choices = [(0, 'Sin doctor asignado')] + [(d.id, d.nombre_completo()) for d in Doctor.query.order_by(Doctor.apellido, Doctor.nombre).all()]
@@ -96,6 +140,7 @@ def agregar():
     return render_template('form.html', form=form, titulo='Nuevo Trabajo')
 
 @app.route('/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
 def editar(id):
     trabajo = Trabajo.query.get_or_404(id)
     form = TrabajoForm(obj=trabajo)
@@ -121,6 +166,7 @@ def editar(id):
     return render_template('form.html', form=form, titulo='Editar Trabajo')
 
 @app.route('/borrar/<int:id>', methods=['POST'])
+@login_required
 def borrar(id):
     trabajo = Trabajo.query.get_or_404(id)
     db.session.delete(trabajo)
@@ -133,11 +179,13 @@ def borrar(id):
 # ========================
 
 @app.route('/doctores')
+@login_required
 def doctores():
     doctores = Doctor.query.order_by(Doctor.apellido, Doctor.nombre).all()
     return render_template('doctores.html', doctores=doctores)
 
 @app.route('/doctores/agregar', methods=['GET', 'POST'])
+@login_required
 def agregar_doctor():
     form = DoctorForm()
     if form.validate_on_submit():
@@ -156,6 +204,7 @@ def agregar_doctor():
     return render_template('doctor_form.html', form=form, titulo='Nuevo Doctor')
 
 @app.route('/doctores/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
 def editar_doctor(id):
     doctor = Doctor.query.get_or_404(id)
     form = DoctorForm(obj=doctor)
@@ -172,12 +221,19 @@ def editar_doctor(id):
     return render_template('doctor_form.html', form=form, titulo='Editar Doctor')
 
 @app.route('/doctores/borrar/<int:id>', methods=['POST'])
+@login_required
 def borrar_doctor(id):
     doctor = Doctor.query.get_or_404(id)
     db.session.delete(doctor)
     db.session.commit()
     flash('Doctor borrado!')
     return redirect(url_for('doctores'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
 
 # ========================
 # CREAR TABLAS Y CORRER APP
