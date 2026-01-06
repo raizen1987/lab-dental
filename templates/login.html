@@ -1,13 +1,35 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    /* Fix general para inputs */
+    .form-control:focus {
+        box-shadow: none !important;
+        border-color: #ced4da !important;
+    }
+    .form-control {
+        font-size: 0.90rem !important;
+        transition: none !important;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+        -webkit-text-fill-color: inherit !important;
+        font-size: 0.90rem !important;
+    }
+    input:-webkit-autofill::first-line {
+        font-size: 0.90rem !important;
+    }
+</style>
+
 <div class="container">
     <div class="row justify-content-center align-items-start min-vh-100 pt-4 pt-md-5">
         <div class="col-md-4">
-            <!-- Logo y título -->
-            <div class="text-center mb-5">
-                <h1 class="display-5 fw-bold text-primary">Laboratorio MV</h1>
-                <p class="lead text-dark">Iniciar sesión</p>
+            <!-- Título -->
+            <div class="text-center mb-3">
+                <h2 class="text-primary" style="font-size: 2.2rem; font-weight: 600;">Laboratorio MV</h2>
+                <p class="text-muted" style="font-size: 1.1rem;">Iniciar sesión</p>
             </div>
 
             <!-- Card del formulario -->
@@ -15,24 +37,25 @@
                 <div class="card-body p-4">
                     <form method="POST" action="">
                         <!-- Email / Nombre de usuario -->
-                        <div class="mb-3">
-                            <label for="email" class="form-label fw-medium">Nombre de usuario</label>
-                                <input type="email" name="email" id="email" class="form-control form-control-lg" 
-                                    placeholder="nombre@laboratoriomv.com" value="{{ request.form.email }}" required autofocus>
+                        <div class="mb-4">
+                            <label for="email" class="form-label text-muted small">Nombre de usuario</label>
+                            <input type="email" name="email" id="email" class="form-control" 
+                                   placeholder="nombre@laboratoriomv.com" value="{{ request.form.email }}" required autofocus>
                         </div>
 
-                        <!-- Contraseña con ojo para mostrar/ocultar -->
-                        <div class="mb-3 position-relative">
-                            <label for="password" class="form-label fw-medium">Contraseña</label>
-                            <input type="password" name="password" id="password" class="form-control form-control-lg" required>
-                            <span class="position-absolute end-0 top-50 translate-middle-y pe-3" style="cursor: pointer;" onclick="togglePassword()">
-                                <small class="text-primary" id="toggleText">Mostrar contraseña</small>
-                            </span>
+                        <!-- Contraseña con "Mostrar contraseña" en el mismo renglón -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label for="password" class="form-label text-muted small mb-0">Contraseña</label>
+                                <span style="cursor: pointer;" onclick="togglePassword()">
+                                    <i class="bi bi-eye text-primary me-1" id="toggleIcon"></i>
+                                    <small class="text-primary" id="toggleText">Mostrar contraseña</small>
+                                </span>
+                            </div>
+                            <input type="password" name="password" id="password" class="form-control mt-1" required>
                         </div>
                         <!-- Botón -->
                         <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">Iniciar sesión</button>
-
-
                     </form>
                 </div>
             </div>
@@ -45,13 +68,18 @@
 function togglePassword() {
     const passwordInput = document.getElementById('password');
     const toggleText = document.getElementById('toggleText');
+    const toggleIcon = document.getElementById('toggleIcon');
     
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         toggleText.textContent = 'Ocultar contraseña';
+        toggleIcon.classList.remove('bi-eye');
+        toggleIcon.classList.add('bi-eye-slash');
     } else {
         passwordInput.type = 'password';
         toggleText.textContent = 'Mostrar contraseña';
+        toggleIcon.classList.remove('bi-eye-slash');
+        toggleIcon.classList.add('bi-eye');
     }
 }
 </script>
