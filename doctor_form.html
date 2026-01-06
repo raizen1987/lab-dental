@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            {{ form.nombre.label }} {{ form.nombre(class="form-control") }}
+        </div>
+        <div class="col-md-6 mb-3">
+            {{ form.apellido.label }} {{ form.apellido(class="form-control") }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            {{ form.telefono.label }} {{ form.telefono(class="form-control") }}
+        </div>
+        <div class="col-md-6 mb-3">
+            {{ form.email.label }} {{ form.email(class="form-control") }}
+        </div>
+    </div>
+    <div class="mb-3">
+        {{ form.matricula.label }} {{ form.matricula(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.notas.label }} {{ form.notas(class="form-control", rows=4) }}
+    </div>
+    {{ form.submit(class="btn btn-success") }}
+    <a href="{{ url_for('doctores') }}" class="btn btn-secondary ms-2">Cancelar</a>
+</form>
+{% endblock %}
