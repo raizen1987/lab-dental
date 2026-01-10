@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.nombre.label(class="form-label") }}
+        {{ form.nombre(class="form-control form-control-lg", placeholder="Ej: PPR ACRILICA") }}
+    </div>
+    {{ form.submit(class="btn btn-success btn-lg") }}
+    <a href="{{ url_for('tipos_trabajo') }}" class="btn btn-secondary btn-lg ms-2">Cancelar</a>
+</form>
+{% endblock %}

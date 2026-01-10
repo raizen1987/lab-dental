@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.nombre.label(class="form-label") }}
+        {{ form.nombre(class="form-control", placeholder="Ej: PPR/PARCIAL") }}
+    </div>
+    <div class="mb-3">
+        {{ form.valor_arancel.label(class="form-label") }}
+        <div class="input-group">
+            <span class="input-group-text">$</span>
+            {{ form.valor_arancel(class="form-control", id="valor_arancel", placeholder="0.00") }}
+        </div>
+    </div>
+    {{ form.submit(class="btn btn-success btn-lg") }}
+    <a href="{{ url_for('trabajos') }}" class="btn btn-secondary btn-lg ms-2">Cancelar</a>
+</form>
+
+<!-- Script para borrar 0.00 por defecto al hacer clic -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const valorInput = document.getElementById('valor_arancel');
+    
+    // Al hacer clic, si es 0.00 o vacío, lo borra
+    valorInput.addEventListener('focus', function() {
+        if (this.value === '0.00' || this.value === '0' || this.value === '') {
+            this.value = '';
+        }
+    });
+    
+    // Al salir del campo, si está vacío, pone 0.00 de nuevo (opcional, para que no quede vacío)
+    valorInput.addEventListener('blur', function() {
+        if (this.value === '') {
+            this.value = '0.00';
+        }
+    });
+});
+</script>
+{% endblock %}
