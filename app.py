@@ -678,4 +678,7 @@ def borrar_usuario(id):
 #        print("¡Usuarios creados correctamente!")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Esto permite correr localmente con puerto 5000 por default
+    # pero en Render usa el PORT que ellos te dan
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción!
