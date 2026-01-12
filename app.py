@@ -8,7 +8,6 @@ from flask_bcrypt import Bcrypt
 from datetime import date
 from decimal import Decimal
 from wtforms.validators import DataRequired, Email, Regexp, Length
-import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
@@ -134,7 +133,7 @@ class OrdenTrabajoForm(FlaskForm):
     paciente = StringField('Paciente', validators=[DataRequired()])
     tipo_trabajo = SelectField('Tipo Trabajo', coerce=int, validators=[DataRequired()])
     trabajo = SelectField('Trabajo', coerce=int, validators=[DataRequired()])
-    maxilar = SelectField('Maxilar', choices=[('Inferior', 'Inferior'), ('Superior', 'Superior')], validators=[DataRequired()])
+    maxilar = SelectField('Maxilar', choices=[('Inferior', 'Inferior'), ('Superior', 'Superior'),('Ambos', 'Ambos')], validators=[DataRequired()])
     detalle_piezas = HiddenField('Detalle Piezas')
     cant_piezas = IntegerField('Cant. Piezas', render_kw={"readonly": True})
     fecha_inicio = DateField('Fecha Inicio', validators=[DataRequired()])
@@ -681,6 +680,5 @@ def borrar_usuario(id):
 if __name__ == '__main__':
     # Esto permite correr localmente con puerto 5000 por default
     # pero en Render usa el PORT que ellos te dan
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción!
-
+   port = int(os.environ.get("PORT", 5000))
+   app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción!      
