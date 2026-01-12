@@ -37,14 +37,6 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label small">Estado Pago</label>
-                <select name="estado_pago" class="form-select">
-                    <option value="">Todos</option>
-                    <option value="PAGADO" {% if request.args.get('estado_pago') == 'PAGADO' %}selected{% endif %}>Pagado</option>
-                    <option value="PENDIENTE" {% if request.args.get('estado_pago') == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
-                </select>
-            </div>
-            <div class="col-md-3">
                 <label class="form-label small">Búsqueda rápida</label>
                 <input type="text" name="q" class="form-control" placeholder="Paciente / Detalle" value="{{ request.args.get('q') or '' }}">
             </div>
