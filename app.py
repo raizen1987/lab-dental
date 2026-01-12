@@ -8,6 +8,7 @@ from flask_bcrypt import Bcrypt
 from datetime import date
 from decimal import Decimal
 from wtforms.validators import DataRequired, Email, Regexp, Length
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
@@ -682,3 +683,4 @@ if __name__ == '__main__':
     # pero en Render usa el PORT que ellos te dan
    port = int(os.environ.get("PORT", 5000))
    app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción!      
+
