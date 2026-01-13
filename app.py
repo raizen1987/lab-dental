@@ -16,7 +16,7 @@ app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
 # Configuración de sesión con expiración por inactividad
 app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés Redis
 app.config['SESSION_PERMANENT'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=2)  # 30 minutos de inactividad
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)  # 30 minutos de inactividad
 
 # Inicializar Flask-Session
 Session(app)
