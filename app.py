@@ -7,12 +7,14 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_bcrypt import Bcrypt
 from datetime import date
 from decimal import Decimal
-from wtforms.validators import DataRequired, Email, Regexp, Length
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///trabajos.db'
+
+#En Render usar PostgreSQL
+#app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('postgresql://lab_mv_db_user:iLp2tARLiystvMKxVJHVV59UWQuB669M@dpg-d5ire89r0fns7388e8u0-a.virginia-postgres.render.com/lab_mv_db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -27,7 +29,7 @@ login_manager.login_message_category = 'info'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
-    apellido = db.Column(db.String(100), nullable=False)  # <- Nuevo campo
+    apellido = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
@@ -84,7 +86,7 @@ class OrdenTrabajo(db.Model):
     detalle_piezas = db.Column(db.String(200))
     cant_piezas = db.Column(db.Integer, default=0)
     fecha_inicio = db.Column(db.Date, nullable=False)
-    fecha_fin = db.Column(db.Date, nullable=False)
+    fecha_entrega = db.Column(db.Date, nullable=False)  # CAMBIADO DE fecha_fin
     arancel = db.Column(db.Numeric(10, 2), nullable=False)
     indicaciones = db.Column(db.String(200))
     numero_factura_id = db.Column(db.Integer, db.ForeignKey('facturacion.id'))
@@ -124,7 +126,7 @@ class FacturacionForm(FlaskForm):
     destinatario = StringField('Destinatario')
     trabajo = SelectField('Trabajo', coerce=int, validators=[DataRequired()])
     importe = DecimalField('Importe', places=2, render_kw={"readonly": True})
-    estado = StringField('Estado', validators=[DataRequired()])
+    estado = SelectField('Estado', choices=[('FACTURADO', 'Facturado'), ('PAGADO', 'Pagado')], validators=[DataRequired()])
     paciente = StringField('Paciente')
     doctor = SelectField('Doctor', coerce=int)
     submit = SubmitField('Guardar')
@@ -134,11 +136,11 @@ class OrdenTrabajoForm(FlaskForm):
     paciente = StringField('Paciente', validators=[DataRequired()])
     tipo_trabajo = SelectField('Tipo Trabajo', coerce=int, validators=[DataRequired()])
     trabajo = SelectField('Trabajo', coerce=int, validators=[DataRequired()])
-    maxilar = SelectField('Maxilar', choices=[('Inferior', 'Inferior'), ('Superior', 'Superior'),('Ambos', 'Ambos')], validators=[DataRequired()])
+    maxilar = SelectField('Maxilar', choices=[('Inferior', 'Inferior'), ('Superior', 'Superior'), ('Ambos', 'Ambos')], validators=[DataRequired()])
     detalle_piezas = HiddenField('Detalle Piezas')
     cant_piezas = IntegerField('Cant. Piezas', render_kw={"readonly": True})
     fecha_inicio = DateField('Fecha Inicio', validators=[DataRequired()])
-    fecha_fin = DateField('Fecha Fin', validators=[DataRequired()])
+    fecha_entrega = DateField('Fecha Entrega', validators=[DataRequired()])  # CAMBIADO
     arancel = DecimalField('Arancel', places=2, render_kw={"readonly": True})
     indicaciones = TextAreaField('Indicaciones', validators=[Length(max=200)])
     numero_factura = SelectField('Número Factura', coerce=int)
@@ -148,7 +150,7 @@ class OrdenTrabajoForm(FlaskForm):
 
 class UserForm(FlaskForm):
     nombre = StringField('Nombre', validators=[DataRequired()])
-    apellido = StringField('Apellido', validators=[DataRequired()])  # <- Nuevo
+    apellido = StringField('Apellido', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Contraseña', validators=[
         DataRequired(),
@@ -158,7 +160,7 @@ class UserForm(FlaskForm):
     ])
     is_admin = BooleanField('Es Administrador')
     submit = SubmitField('Guardar')
-    
+
 # ---------------- ROUTES ----------------
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -385,6 +387,12 @@ def agregar_factura():
     form.doctor.choices = [(0, 'Sin doctor')] + [(d.id, d.nombre_completo()) for d in doctores]
     
     if form.validate_on_submit():
+        # Chequear si el número de factura ya existe
+        existente = Facturacion.query.filter_by(numero_factura=form.numero_factura.data).first()
+        if existente:
+            flash('Ese número de factura ya existe. Elegí otro.', 'danger')
+            return render_template('factura_form.html', form=form, titulo='Nueva Factura', trabajos=trabajos, doctores=doctores)
+        
         trabajo_seleccionado = TrabajoTipo.query.get(form.trabajo.data)
         nueva = Facturacion(
             numero_factura=form.numero_factura.data,
@@ -407,12 +415,28 @@ def agregar_factura():
 @login_required
 def editar_factura(id):
     factura = Facturacion.query.get_or_404(id)
-    form = FacturacionForm(obj=factura)
+    
+    # 1. Cargar choices PRIMERO
     trabajos = TrabajoTipo.query.order_by(TrabajoTipo.nombre).all()
     doctores = Doctor.query.order_by(Doctor.apellido, Doctor.nombre).all()
     
+    # 2. Crear form VACÍO (sin obj todavía)
+    form = FacturacionForm()
+    
+    # 3. Asignar choices INMEDIATAMENTE
     form.trabajo.choices = [(t.id, t.nombre) for t in trabajos]
     form.doctor.choices = [(0, 'Sin doctor')] + [(d.id, d.nombre_completo()) for d in doctores]
+    
+    # 4. Ahora sí llenar manualmente los valores iniciales (esto fuerza la preselección)
+    if request.method == 'GET':
+        form.numero_factura.data = factura.numero_factura
+        form.fecha.data = factura.fecha
+        form.destinatario.data = factura.destinatario
+        form.trabajo.data = factura.trabajo_id  # int
+        form.importe.data = factura.importe
+        form.estado.data = factura.estado
+        form.paciente.data = factura.paciente
+        form.doctor.data = factura.doctor_id if factura.doctor_id is not None else 0
     
     if form.validate_on_submit():
         trabajo_seleccionado = TrabajoTipo.query.get(form.trabajo.data)
@@ -424,8 +448,9 @@ def editar_factura(id):
         factura.estado = form.estado.data.upper()
         factura.paciente = form.paciente.data
         factura.doctor_id = form.doctor.data if form.doctor.data != 0 else None
+        
         db.session.commit()
-        flash('Factura actualizada!', 'success')
+        flash('Factura actualizada correctamente!', 'success')
         return redirect(url_for('facturacion'))
     
     return render_template('factura_form.html', form=form, titulo='Editar Factura', trabajos=trabajos, doctores=doctores)
@@ -448,22 +473,22 @@ def ordenes_trabajo():
 
     # Filtros
     fecha_inicio = request.args.get('fecha_inicio')
-    fecha_fin = request.args.get('fecha_fin')
+    fecha_entrega = request.args.get('fecha_entrega')  # CAMBIADO
     doctor_id = request.args.get('doctor_id')
     estado_orden = request.args.get('estado_orden')
-    estado_pago = request.args.get('estado_pago')
+    estado_facturacion = request.args.get('estado_facturacion')
     q = request.args.get('q')
 
     if fecha_inicio:
         query = query.filter(OrdenTrabajo.fecha_inicio >= date.fromisoformat(fecha_inicio))
-    if fecha_fin:
-        query = query.filter(OrdenTrabajo.fecha_fin <= date.fromisoformat(fecha_fin))
+    if fecha_entrega:
+        query = query.filter(OrdenTrabajo.fecha_entrega <= date.fromisoformat(fecha_entrega))
     if doctor_id:
         query = query.filter(OrdenTrabajo.doctor_id == int(doctor_id))
     if estado_orden:
         query = query.filter(OrdenTrabajo.estado_orden == estado_orden)
-    if estado_pago:
-        query = query.filter(OrdenTrabajo.estado_pago == estado_pago)
+    if estado_facturacion:
+        query = query.join(OrdenTrabajo.numero_factura).filter(Facturacion.estado == estado_facturacion)
     if q:
         q = f"%{q}%"
         query = query.filter(
@@ -509,7 +534,7 @@ def agregar_orden_trabajo():
             detalle_piezas=form.detalle_piezas.data,
             cant_piezas=form.cant_piezas.data,
             fecha_inicio=form.fecha_inicio.data,
-            fecha_fin=form.fecha_fin.data,
+            fecha_entrega=form.fecha_entrega.data,  # CAMBIADO
             arancel=trabajo.valor_arancel,
             indicaciones=form.indicaciones.data,
             numero_factura_id=form.numero_factura.data if form.numero_factura.data != 0 else None,
@@ -527,20 +552,32 @@ def agregar_orden_trabajo():
 @login_required
 def editar_orden_trabajo(id):
     orden = OrdenTrabajo.query.get_or_404(id)
-    form = OrdenTrabajoForm(obj=orden)
+    
+    # 1. Cargar TODAS las opciones ANTES de crear el form (esto es lo que faltaba)
     doctores = Doctor.query.order_by(Doctor.apellido, Doctor.nombre).all()
     tipos_trabajo = TipoTrabajo.query.order_by(TipoTrabajo.nombre).all()
     trabajos = TrabajoTipo.query.order_by(TrabajoTipo.nombre).all()
     facturas = Facturacion.query.order_by(Facturacion.fecha.desc()).all()
     
+    # 2. Crear el form con obj=orden (ahora ya tiene las choices listas)
+    form = OrdenTrabajoForm(obj=orden)
+    
+    # 3. Asignar choices (ya puede preseleccionar correctamente)
     form.doctor.choices = [(d.id, d.nombre_completo()) for d in doctores]
     form.tipo_trabajo.choices = [(t.id, t.nombre) for t in tipos_trabajo]
     form.trabajo.choices = [(t.id, t.nombre) for t in trabajos]
     form.numero_factura.choices = [(0, 'Sin factura')] + [(f.id, f.numero_factura) for f in facturas]
     
+    if request.method == 'GET':
+        form.doctor.data = orden.doctor_id
+        form.tipo_trabajo.data = orden.tipo_trabajo_id
+        form.trabajo.data = orden.trabajo_id
+        form.numero_factura.data = orden.numero_factura_id if orden.numero_factura_id else 0
+    
     if form.validate_on_submit():
         trabajo = TrabajoTipo.query.get(form.trabajo.data)
         factura = Facturacion.query.get(form.numero_factura.data) if form.numero_factura.data != 0 else None
+        
         orden.doctor_id = form.doctor.data
         orden.paciente = form.paciente.data
         orden.tipo_trabajo_id = form.tipo_trabajo.data
@@ -549,18 +586,20 @@ def editar_orden_trabajo(id):
         orden.detalle_piezas = form.detalle_piezas.data
         orden.cant_piezas = form.cant_piezas.data
         orden.fecha_inicio = form.fecha_inicio.data
-        orden.fecha_fin = form.fecha_fin.data
+        orden.fecha_entrega = form.fecha_entrega.data
         orden.arancel = trabajo.valor_arancel
         orden.indicaciones = form.indicaciones.data
         orden.numero_factura_id = form.numero_factura.data if form.numero_factura.data != 0 else None
         orden.estado_pago = factura.estado if factura else None
         orden.estado_orden = form.estado_orden.data
+        
         db.session.commit()
         flash('Orden actualizada!', 'success')
         return redirect(url_for('ordenes_trabajo'))
     
-    return render_template('orden_trabajo_form.html', form=form, titulo='Editar Orden de Trabajo', doctores=doctores, tipos_trabajo=tipos_trabajo, trabajos=trabajos, facturas=facturas)
-
+    return render_template('orden_trabajo_form.html', form=form, titulo='Editar Orden de Trabajo',
+                          doctores=doctores, tipos_trabajo=tipos_trabajo, trabajos=trabajos, facturas=facturas)
+    
 @app.route('/ordenes_trabajo/borrar/<int:id>', methods=['POST'])
 @login_required
 def borrar_orden_trabajo(id):
@@ -570,7 +609,8 @@ def borrar_orden_trabajo(id):
     flash('Orden borrada', 'success')
     return redirect(url_for('ordenes_trabajo'))
 
-#------------------ USUARIO --------------------#
+# ---------------- USUARIOS ----------------
+
 @app.route('/usuarios')
 @login_required
 def usuarios():
@@ -588,7 +628,7 @@ def agregar_usuario():
         flash('No tenés permisos.', 'danger')
         return redirect(url_for('index'))
     
-    form = UserForm()  # <- Sin obj=usuario, para que entre vacío
+    form = UserForm()
     if form.validate_on_submit():
         nuevo = User(
             nombre=form.nombre.data,
@@ -618,7 +658,7 @@ def editar_usuario(id):
         usuario.apellido = form.apellido.data
         usuario.email = form.email.data.lower()
         usuario.is_admin = form.is_admin.data
-        if form.password.data:  # Solo cambiar si se ingresa nueva contraseña
+        if form.password.data:
             usuario.password_hash = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         db.session.commit()
         flash('Usuario actualizado', 'success')
@@ -645,42 +685,22 @@ def borrar_usuario(id):
 
 # ---------------- CREACIÓN DE TABLAS Y USUARIOS ----------------
 
-#with app.app_context():
-#    db.create_all()
-#    print("Tablas creadas o ya existían.")
-#   
-#   if User.query.count() == 0:
-#        print("Creando usuarios...")
-#        
-#        admin = User(
-#            nombre='Gabriel',
-#            apellido='Amaya',  # <- agregado
-#            email='gfamaya@laboratoriomv.com',
-#            is_admin=True
-#        )
-#        admin.password_hash = bcrypt.generate_password_hash('@Gabriel14021987').decode('utf-8')
-#        
-#        usuario1 = User(
-#            nombre='Eliana',
-#            apellido='Maltempo',  # <- agregado
-#            email='ebmaltempo@laboratoriomv.com'
-#        )
-#        usuario1.password_hash = bcrypt.generate_password_hash('@Eliana05051989').decode('utf-8')
-        
-#        usuario2 = User(
-#            nombre='Gisella',
-#            apellido='Vallejos',  # <- agregado
-#            email='gvallejos@laboratoriomv.com'
-#        )
-#        usuario2.password_hash = bcrypt.generate_password_hash('@Gisella1402').decode('utf-8')
-#        
-#        db.session.add_all([admin, usuario1, usuario2])
-#        db.session.commit()
-#        print("¡Usuarios creados correctamente!")
-
+# Descomentá solo la primera vez para crear tablas y usuarios iniciales
+with app.app_context():
+     db.create_all()
+     print("Tablas creadas o ya existían.")
+     if User.query.count() == 0:
+         print("Creando usuarios...")
+         admin = User(nombre='Gabriel', apellido='Amaya', email='gfamaya@laboratoriomv.com', is_admin=True)
+         admin.password_hash = bcrypt.generate_password_hash('@Gabriel14021987').decode('utf-8')
+         usuario1 = User(nombre='Eliana', apellido='Maltempo', email='ebmaltempo@laboratoriomv.com')
+         usuario1.password_hash = bcrypt.generate_password_hash('@Eliana05051989').decode('utf-8')
+         usuario2 = User(nombre='Gisella', apellido='Vallejos', email='gvallejos@laboratoriomv.com')
+         usuario2.password_hash = bcrypt.generate_password_hash('@Gisella1402').decode('utf-8')
+         db.session.add_all([admin, usuario1, usuario2])
+         db.session.commit()
+         print("¡Usuarios creados correctamente!")
+ 
 if __name__ == '__main__':
-    # Esto permite correr localmente con puerto 5000 por default
-    # pero en Render usa el PORT que ellos te dan
    port = int(os.environ.get("PORT", 5000))
-   app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción!      
-
+   app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción! 
