@@ -682,11 +682,39 @@ def borrar_usuario(id):
     flash('Usuario borrado', 'success')
     return redirect(url_for('usuarios'))
     
-@app.route('/initdb')
-def initdb():
-    with app.app_context():
-        db.create_all()
-    return "Tablas creadas!"
+# ---------------- INICIALIZACIÓN DE USUARIOS (solo la primera vez) ----------------
+with app.app_context():
+    if User.query.count() == 0:
+        print("No hay usuarios. Creando usuarios iniciales...")
+
+        # Usuario admin
+        admin = User(
+            nombre='Gabriel',
+            apellido='Amaya',
+            email='gfamaya@laboratoriomv.com',
+            is_admin=True
+        )
+        admin.password_hash = bcrypt.generate_password_hash('@Gabriel14021987').decode('utf-8')
+
+        # Usuario 1
+        usuario1 = User(
+            nombre='Eliana',
+            apellido='Maltempo',
+            email='ebmaltempo@laboratoriomv.com'
+        )
+        usuario1.password_hash = bcrypt.generate_password_hash('@Eliana05051989').decode('utf-8')
+
+        # Usuario 2
+        usuario2 = User(
+            nombre='Gisella',
+            apellido='Vallejos',
+            email='gvallejos@laboratoriomv.com'
+        )
+        usuario2.password_hash = bcrypt.generate_password_hash('@Gisella1402').decode('utf-8')
+
+        db.session.add_all([admin, usuario1, usuario2])
+        db.session.commit()
+        print("¡Usuarios iniciales creados correctamente!")
     
 if __name__ == '__main__':
    port = int(os.environ.get("PORT", 5000))
