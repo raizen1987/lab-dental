@@ -13,7 +13,7 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label small">Fecha Fin</label>
-                <input type="date" name="fecha_fin" class="form-control" value="{{ request.args.get('fecha_fin') }}">
+                <input type="date" name="fecha_entrega" class="form-control" value="{{ request.args.get('fecha_entrega') }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label small">Doctor</label>
@@ -34,6 +34,14 @@
                     <option value="EN PROCESO" {% if request.args.get('estado_orden') == 'EN PROCESO' %}selected{% endif %}>En Proceso</option>
                     <option value="ENTREGADO" {% if request.args.get('estado_orden') == 'ENTREGADO' %}selected{% endif %}>Entregado</option>
                     <option value="FINALIZADO" {% if request.args.get('estado_orden') == 'FINALIZADO' %}selected{% endif %}>Finalizado</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Estado Facturación</label>
+                <select name="estado_facturacion" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="FACTURADO" {% if request.args.get('estado_facturacion') == 'FACTURADO' %}selected{% endif %}>Facturado</option>
+                    <option value="PAGADO" {% if request.args.get('estado_facturacion') == 'PAGADO' %}selected{% endif %}>Pagado</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -83,7 +91,7 @@
                 <td>{{ o.detalle_piezas or '-' }}</td>
                 <td>{{ o.cant_piezas }}</td>
                 <td>{{ o.fecha_inicio.strftime('%d/%m/%Y') }}</td>
-                <td>{{ o.fecha_fin.strftime('%d/%m/%Y') }}</td>
+                <td>{{ o.fecha_entrega.strftime('%d/%m/%Y') }}</td>
                 <td>${{ "%.2f"|format(o.arancel) }}</td>
                 <td>{{ o.indicaciones or '-' }}</td>
                 <td>{{ o.numero_factura.numero_factura if o.numero_factura else '-' }}</td>
