@@ -1,19 +1,30 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, session, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, StringField, PasswordField, SubmitField, SelectField, DateField, DecimalField, HiddenField, IntegerField, TextAreaField
 from wtforms.validators import DataRequired, Regexp, Length, Email
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from datetime import date
+from datetime import date, timedelta,datetime
 from decimal import Decimal
 import os
+from flask_session import Session
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
 
+# Configuración de sesión con expiración por inactividad
+app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés Redis
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=2)  # 30 minutos de inactividad
+
+# Inicializar Flask-Session
+Session(app)
+
 #En Render usar PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://lab_mv_db_user:iLp2tARLiystvMKxVJHVV59UWQuB669M@dpg-d5ire89r0fns7388e8u0-a.virginia-postgres.render.com/lab_mv_db?sslmode=require')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -36,6 +47,14 @@ class User(UserMixin, db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+    
+# Refrescar sesión en cada request (extiende la vida útil si hay actividad)
+@app.before_request
+def refresh_session():
+    if current_user.is_authenticated:
+        session.permanent = True
+        # Refrescar la expiración
+        session.modified = True
 
 class Doctor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -173,7 +192,8 @@ def login():
         user = User.query.filter(User.email.ilike(email_input)).first()
         
         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
-            login_user(user, remember=True)
+            # ¡Importante! remember=True + duración permanente
+            login_user(user, remember=True, duration=timedelta(minutes=30))
             flash(f'¡Bienvenido, {user.nombre}!', 'success')
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
@@ -183,10 +203,9 @@ def login():
     return render_template('login.html', form=form)
 
 @app.route('/logout')
-@login_required
 def logout():
     logout_user()
-    flash('Sesión cerrada', 'info')
+    flash('Tu sesión expiró por inactividad (30 minutos) o cerraste manualmente.', 'session_expired')
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -681,40 +700,6 @@ def borrar_usuario(id):
     db.session.commit()
     flash('Usuario borrado', 'success')
     return redirect(url_for('usuarios'))
-    
-# ---------------- INICIALIZACIÓN DE USUARIOS (solo la primera vez) ----------------
-with app.app_context():
-    if User.query.count() == 0:
-        print("No hay usuarios. Creando usuarios iniciales...")
-
-        # Usuario admin
-        admin = User(
-            nombre='Gabriel',
-            apellido='Amaya',
-            email='gfamaya@laboratoriomv.com',
-            is_admin=True
-        )
-        admin.password_hash = bcrypt.generate_password_hash('@Gabriel14021987').decode('utf-8')
-
-        # Usuario 1
-        usuario1 = User(
-            nombre='Eliana',
-            apellido='Maltempo',
-            email='ebmaltempo@laboratoriomv.com'
-        )
-        usuario1.password_hash = bcrypt.generate_password_hash('@Eliana05051989').decode('utf-8')
-
-        # Usuario 2
-        usuario2 = User(
-            nombre='Gisella',
-            apellido='Vallejos',
-            email='gvallejos@laboratoriomv.com'
-        )
-        usuario2.password_hash = bcrypt.generate_password_hash('@Gisella1402').decode('utf-8')
-
-        db.session.add_all([admin, usuario1, usuario2])
-        db.session.commit()
-        print("¡Usuarios iniciales creados correctamente!")
     
 if __name__ == '__main__':
    port = int(os.environ.get("PORT", 5000))
