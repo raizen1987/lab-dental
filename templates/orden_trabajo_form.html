@@ -5,6 +5,7 @@
 
 <form method="POST">
     {{ form.hidden_tag() }}
+
     <div class="row">
         <div class="col-md-6 mb-3">
             {{ form.doctor.label(class="form-label") }}
@@ -22,6 +23,7 @@
             {{ form.paciente(class="form-control") }}
         </div>
     </div>
+
     <div class="row">
         <div class="col-md-6 mb-3">
             {{ form.tipo_trabajo.label(class="form-label") }}
@@ -46,13 +48,14 @@
             </select>
         </div>
     </div>
+
     <div class="row">
         <div class="col-md-4 mb-3">
             {{ form.maxilar.label(class="form-label") }}
             <select name="maxilar" class="form-select" required>
                 <option value="Superior">Superior</option>
                 <option value="Inferior">Inferior</option>
-                <option value="Ambos">Ambos</option>  <!-- AGREGADO -->
+                <option value="Ambos">Ambos</option>
             </select>
         </div>
         <div class="col-md-4 mb-3">
@@ -68,7 +71,7 @@
         </div>
     </div>
 
-    <!-- Detalle Piezas (con script mejorado) -->
+    <!-- Detalle Piezas -->
     <div class="mb-3">
         <label class="form-label">Detalle Piezas</label>
         <div class="teeth-container p-3 border rounded bg-light">
@@ -106,34 +109,48 @@
             {{ form.fecha_inicio(class="form-control", type="date") }}
         </div>
         <div class="col-md-6 mb-3">
-            {{ form.fecha_fin.label(class="form-label") }}
-            {{ form.fecha_fin(class="form-control", type="date") }}
+            {{ form.fecha_entrega.label(class="form-label") }}
+            {{ form.fecha_entrega(class="form-control", type="date") }}
         </div>
     </div>
+
     <div class="mb-3">
         {{ form.indicaciones.label(class="form-label") }}
         {{ form.indicaciones(class="form-control", rows=4) }}
     </div>
-    <div class="row">
-        <div class="col-md-12 mb-3">
-            {{ form.numero_factura.label(class="form-label") }}
+
+    <!-- Renglón achicado: Número Factura + Estado Orden -->
+    <div class="row g-3">
+        <div class="col-md-4">
+            {{ form.numero_factura.label(class="form-label small") }}
             <select name="numero_factura" id="numero_factura" class="form-select form-select-sm">
                 <option value="0">-- Sin factura --</option>
                 {% for f in facturas %}
-                <option value="{{ f.id }}" data-estado="{{ f.estado }}" {% if form.numero_factura.data == f.id %}selected{% endif %}>
+                <option value="{{ f.id }}" data-estado="{{ f.estado }}" data-importe="{{ f.importe }}" {% if form.numero_factura.data == f.id %}selected{% endif %}>
                     {{ f.numero_factura }}
                 </option>
                 {% endfor %}
             </select>
         </div>
-    </div>
-    <div class="mb-3">
-        {{ form.estado_orden.label(class="form-label") }}
-        {{ form.estado_orden(class="form-select form-select-sm") }}
+        <div class="col-md-4">
+            <label class="form-label small">Importe Factura</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="text" class="form-control" id="importe_factura" readonly value="0.00">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Estado Facturación</label>
+            <input type="text" class="form-control form-control-sm" id="estado_facturacion" readonly>
+        </div>
+        <div class="col-md-4">
+            {{ form.estado_orden.label(class="form-label small") }}
+            {{ form.estado_orden(class="form-select form-select-sm") }}
+        </div>
     </div>
 
-    {{ form.submit(class="btn btn-success btn-lg") }}
-    <a href="{{ url_for('ordenes_trabajo') }}" class="btn btn-secondary btn-lg ms-2">Cancelar</a>
+    {{ form.submit(class="btn btn-success btn-lg mt-3") }}
+    <a href="{{ url_for('ordenes_trabajo') }}" class="btn btn-secondary btn-lg ms-2 mt-3">Cancelar</a>
 </form>
 
 <script>
@@ -143,10 +160,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const trabajoSelect = document.getElementById('trabajo');
     const arancelInput = document.querySelector('input[name="arancel"]');
     const facturaSelect = document.getElementById('numero_factura');
-    const estadoPagoInput = document.querySelector('input[name="estado_pago"]');
+    const estadoFacturacionInput = document.getElementById('estado_facturacion');
+    const importeFacturaInput = document.getElementById('importe_factura');
     let selected = detalleInput.value ? detalleInput.value.split(', ').map(n => n.trim()) : [];
 
-    // Restaurar selección inicial (edición)
+    // Restaurar selección inicial de piezas (edición)
     document.querySelectorAll('.tooth').forEach(btn => {
         const num = btn.getAttribute('data-number');
         if (selected.includes(num)) {
@@ -155,10 +173,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Evento clic/toque en dientes
+    // Toggle piezas (web + móvil)
     document.querySelectorAll('.tooth').forEach(btn => {
         btn.addEventListener('click', function(e) {
-            e.preventDefault();  // Importante para móvil
+            e.preventDefault();
             const num = this.getAttribute('data-number');
 
             if (selected.includes(num)) {
@@ -177,23 +195,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Arancel automático
+    // ARANCEL: solo se actualiza con el valor del TRABAJO (no de la factura)
     trabajoSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
         const precio = option.getAttribute('data-precio') || '0.00';
         arancelInput.value = parseFloat(precio).toFixed(2);
     });
 
-    // Estado Pago automático (si lo tenés)
+    // Autocompletar solo Estado e Importe de la factura (sin tocar arancel)
     facturaSelect.addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
         const estado = option.getAttribute('data-estado') || '';
-        if (estadoPagoInput) estadoPagoInput.value = estado;
+        const importe = option.getAttribute('data-importe') || '0.00';
+
+        if (estadoFacturacionInput) estadoFacturacionInput.value = estado;
+        if (importeFacturaInput) importeFacturaInput.value = parseFloat(importe).toFixed(2);
     });
 
-    // Inicializar valores si es edición
+    // Inicializar valores al cargar (edición)
     if (trabajoSelect.value) trabajoSelect.dispatchEvent(new Event('change'));
     if (facturaSelect.value) facturaSelect.dispatchEvent(new Event('change'));
 });
 </script>
+
 {% endblock %}
