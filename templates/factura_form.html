@@ -5,22 +5,34 @@
 
 <form method="POST">
     {{ form.hidden_tag() }}
-    <div class="row">
-        <div class="col-md-6 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4">
             {{ form.numero_factura.label(class="form-label") }}
             {{ form.numero_factura(class="form-control", placeholder="Ej: 0001") }}
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4">
             {{ form.fecha.label(class="form-label") }}
             {{ form.fecha(class="form-control", type="date") }}
         </div>
+        <div class="col-md-4">
+            {{ form.estado.label(class="form-label") }}
+            {{ form.estado(class="form-select") }}
+        </div>
     </div>
-    <div class="mb-3">
-        {{ form.destinatario.label(class="form-label") }}
-        {{ form.destinatario(class="form-control") }}
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            {{ form.destinatario.label(class="form-label") }}
+            {{ form.destinatario(class="form-control") }}
+        </div>
+        <div class="col-md-6">
+            {{ form.paciente.label(class="form-label") }}
+            {{ form.paciente(class="form-control") }}
+        </div>
     </div>
-    <div class="row">
-        <div class="col-md-8 mb-3">
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-4">
             {{ form.trabajo.label(class="form-label") }}
             <select name="trabajo" id="trabajo" class="form-select" required>
                 <option value="">-- Seleccionar trabajo --</option>
@@ -31,51 +43,37 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4">
             {{ form.importe.label(class="form-label") }}
             <div class="input-group">
                 <span class="input-group-text">$</span>
                 {{ form.importe(class="form-control", readonly=True) }}
             </div>
         </div>
+        <div class="col-md-4">
+            {{ form.doctor.label(class="form-label") }}
+            <select name="doctor" class="form-select">
+                <option value="0">-- Sin doctor --</option>
+                {% for d in doctores %}
+                <option value="{{ d.id }}" {% if form.doctor.data == d.id %}selected{% endif %}>
+                    {{ d.nombre_completo() }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
-    <div class="mb-3">
-        {{ form.estado.label(class="form-label") }}
-        {{ form.estado(class="form-control", placeholder="Ej: FACTURADO") }}
+
+    <div class="mt-4 d-flex gap-2">
+        {{ form.submit(class="btn btn-success") }}
+        <a href="{{ url_for('facturacion') }}" class="btn btn-secondary">Cancelar</a>
     </div>
-    <div class="mb-3">
-        {{ form.paciente.label(class="form-label") }}
-        {{ form.paciente(class="form-control") }}
-    </div>
-    <div class="mb-3">
-        {{ form.doctor.label(class="form-label") }}
-        <select name="doctor" class="form-select">
-            <option value="0">-- Sin doctor --</option>
-            {% for d in doctores %}
-            <option value="{{ d.id }}" {% if form.doctor.data == d.id %}selected{% endif %}>
-                {{ d.nombre_completo() }}
-            </option>
-            {% endfor %}
-        </select>
-    </div>
-    {{ form.submit(class="btn btn-success btn-lg") }}
-    <a href="{{ url_for('facturacion') }}" class="btn btn-secondary btn-lg ms-2">Cancelar</a>
 </form>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const trabajoSelect = document.getElementById('trabajo');
-    const importeInput = document.querySelector('input[name="importe"]');
-    
-    trabajoSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        const precio = selectedOption.getAttribute('data-precio') || '0.00';
-        importeInput.value = parseFloat(precio).toFixed(2);
-    });
-    
-    if (trabajoSelect.value) {
-        trabajoSelect.dispatchEvent(new Event('change'));
-    }
+document.getElementById('trabajo').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    const precio = option.getAttribute('data-precio') || '0.00';
+    document.querySelector('input[name="importe"]').value = parseFloat(precio).toFixed(2);
 });
 </script>
 {% endblock %}
