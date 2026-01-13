@@ -36,7 +36,6 @@
                     <option value="">Todos</option>
                     <option value="FACTURADO" {% if request.args.get('estado') == 'FACTURADO' %}selected{% endif %}>Facturado</option>
                     <option value="PAGADO" {% if request.args.get('estado') == 'PAGADO' %}selected{% endif %}>Pagado</option>
-                    <option value="PENDIENTE" {% if request.args.get('estado') == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
                 </select>
             </div>
             <div class="col-md-3">
