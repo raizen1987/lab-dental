@@ -413,7 +413,8 @@ def borrar_tipo_trabajo(id):
 @app.route('/trabajos')
 @login_required
 def trabajos():
-    trabajos = TrabajoTipo.query.all()
+    query = TrabajoTipo.query
+    trabajos = query.order_by(TrabajoTipo.id.asc()).all()
     return render_template('trabajos.html', trabajos=trabajos)
 
 @app.route('/trabajos/agregar', methods=['GET', 'POST'])
