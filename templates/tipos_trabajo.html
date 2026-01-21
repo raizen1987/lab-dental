@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Tipos de Trabajo</h1>
+
+
+<a href="{{ url_for('agregar_tipo_trabajo') }}" class="btn btn-primary mb-3">+ Agregar Tipo de Trabajo</a>
+
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover table-bordered text-center">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tipo in tipos %}
+            <tr>
+                <td class="fw-bold">{{ tipo.id }}</td>
+                <td>{{ tipo.nombre }}</td>
+                <td>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <a href="{{ url_for('editar_tipo_trabajo', id=tipo.id) }}" class="btn btn-sm btn-warning">Editar</a>
+                        <form action="{{ url_for('borrar_tipo_trabajo', id=tipo.id) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger" 
+                                    onclick="return confirm('¿Seguro que querés borrar este tipo de trabajo?')">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" class="text-center py-4 text-muted">No hay tipos de trabajo registrados todavía.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Estilos responsive para móvil (mejor que el anterior) -->
+<style>
+    table th, table td {
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+
+    @media (max-width: 768px) {
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        table {
+            width: 100%;
+            min-width: 600px; /* fuerza scroll horizontal si es necesario, pero mantiene columnas claras */
+        }
+        th, td {
+            white-space: nowrap;
+            min-width: 150px;
+            padding: 0.75rem;
+        }
+        .btn-sm {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
