@@ -19,7 +19,7 @@ from sqlalchemy import or_
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 import cloudinary
 import cloudinary.uploader
-import cloudinary.api
+from cloudinary.utils import cloudinary_url
 
 app = Flask(__name__)
 
@@ -34,12 +34,12 @@ ALLOWED_EXTENSIONS = {'pdf'}
 # Inicializar Flask-Session
 Session(app)
 
-# Configuración (ponela al principio de app.py o en config)
-cloudinary.config(
-    cloud_name = app.config['dnnpusoff'],
-    api_key = app.config['812463469552182'],
-    api_secret = app.config['ToQ7UAV-FLVLr33QZcYn0Wv4Z9Qt'],
-    secure = True
+# Configuración (ponela al principio de app.py o en config)  
+cloudinary.config( 
+    cloud_name = "dnnpusoff", 
+    api_key = "812463469552182", 
+    api_secret = "ToQ7UAV-FLVLr33QZcYn0Wv4Z9Qt", # Click 'View API Keys' above to copy your API secret
+    secure=True
 )
 
 #En Render usar PostgreSQL
