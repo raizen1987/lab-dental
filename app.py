@@ -23,35 +23,27 @@ import cloudinary.api
 
 app = Flask(__name__)
 
-# Configuración de Cloudinary (mejor poner en .env o config)
-cloudinary.config( 
-  cloud_name = "dnnpusoff",   # de tu dashboard de Cloudinary
-  api_key = "812463469552182",
-  api_secret = "ToQ7UAV-FLVLr33QZcYn0Wv4Z9Qt",
-  secure = True
-)
 
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
 # Configuración de sesión con expiración por inactividad
 app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés Redis
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=2)  # 30 minutos de inactividad
+ALLOWED_EXTENSIONS = {'pdf'}
 
 # Inicializar Flask-Session
 Session(app)
 
 # Configuración (ponela al principio de app.py o en config)
 cloudinary.config(
-    cloud_name = app.config['CLOUDINARY_CLOUD_NAME'],
-    api_key = app.config['CLOUDINARY_API_KEY'],
-    api_secret = app.config['CLOUDINARY_API_SECRET'],
+    cloud_name = app.config['dnnpusoff'],
+    api_key = app.config['812463469552182'],
+    api_secret = app.config['ToQ7UAV-FLVLr33QZcYn0Wv4Z9Qt'],
     secure = True
 )
 
 #En Render usar PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://lab_mv_db_user:iLp2tARLiystvMKxVJHVV59UWQuB669M@dpg-d5ire89r0fns7388e8u0-a.virginia-postgres.render.com/lab_mv_db?sslmode=require')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
