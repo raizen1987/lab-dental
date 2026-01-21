@@ -43,7 +43,7 @@ cloudinary.config(
 )
 
 #En Render usar PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://database_url_37gy_user:rfI2gJVUUnh3ve57oJhchXetTsRVzjkF@dpg-d5ofv7umcj7s73arc2v0-a.virginia-postgres.render.com/database_url_37gy?sslmode=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://database_url_37gy_user:rfI2gJVUUnh3ve57oJhchXetTsRVzjkF@dpg-d5ofv7umcj7s73arc2v0-a.virginia-postgres.render.com/database_url_37gy')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
