@@ -38,7 +38,7 @@ Session(app)
 cloudinary.config( 
     cloud_name = "dnnpusoff", 
     api_key = "812463469552182", 
-    api_secret = "ToQ7UAV-FLVLr33QZcYn0Wv4Z9Qt", # Click 'View API Keys' above to copy your API secret
+    api_secret = "ToQ7UAV-FLVLr33QZcYn0Wv4Z9Q", # Click 'View API Keys' above to copy your API secret
     secure=True
 )
 
