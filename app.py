@@ -578,24 +578,30 @@ def agregar_factura():
     if 'archivo_pdf' in request.files and request.files['archivo_pdf'].filename != '':
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
-            # Mantener el nombre original pero sanitizarlo
-            original_filename = file.filename
-            # Sanitizar solo el nombre base, mantener la extensión .pdf
-            base_name = secure_filename(original_filename.rsplit('.', 1)[0])
-            filename = base_name + '.pdf'  # forzamos la extensión .pdf
-
-            # Subir a Cloudinary
             try:
+                # Obtener nombre base sanitizado (sin extensión)
+                base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
+                
+                # Forzamos .pdf en el public_id
+                public_id = f"facturas/{base_name}"
+
+                # Subir a Cloudinary
                 upload_result = cloudinary.uploader.upload(
                     file,
-                    folder="facturas",
+                    public_id=public_id,          # forzamos el nombre con carpeta
                     resource_type="raw",
-                    public_id=base_name,  # nombre sin extensión
-                    use_filename=True,
+                    use_filename=False,           # no usamos el filename original
                     unique_filename=False,
                     overwrite=True
                 )
-                nueva.archivo_pdf = upload_result['secure_url']
+
+                # La URL de Cloudinary NO siempre tiene .pdf, así que la forzamos
+                url = upload_result['secure_url']
+                if not url.lower().endswith('.pdf'):
+                    url += '.pdf'
+
+                nueva.archivo_pdf = url
+                print(f"PDF subido OK: {url}")  # debug en logs de Render
             except Exception as e:
                 flash(f'Error al subir PDF a Cloudinary: {str(e)}', 'danger')
                 return render_template('factura_form.html', form=form, titulo='Nueva Factura', factura=nueva)
@@ -706,38 +712,42 @@ def editar_factura(id):
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
-                # Borrar viejo en Cloudinary si existe
+                # Borrar viejo si existe
                 if factura.archivo_pdf:
                     # Extraer public_id (ej: facturas/nombre)
-                    public_id = factura.archivo_pdf.split('/')[-1].rsplit('.', 1)[0]
-                    cloudinary.uploader.destroy(f"facturas/{public_id}", resource_type="raw")
+                    parts = factura.archivo_pdf.split('/')
+                    public_id = '/'.join(parts[-2:]).rsplit('.', 1)[0]  # carpeta + nombre sin .pdf
+                    cloudinary.uploader.destroy(public_id, resource_type="raw")
 
-                # Obtener nombre base sanitizado + .pdf
-                original_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
-                filename = original_name + '.pdf'
+                # Nuevo nombre
+                base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
+                public_id = f"facturas/{base_name}"
 
-                # Subir nuevo
+                # Subir
                 upload_result = cloudinary.uploader.upload(
                     file,
-                    folder="facturas",
+                    public_id=public_id,
                     resource_type="raw",
-                    public_id=original_name,
                     use_filename=False,
                     unique_filename=False,
                     overwrite=True
                 )
 
-                factura.archivo_pdf = upload_result['secure_url'] + '.pdf' if not upload_result['secure_url'].endswith('.pdf') else upload_result['secure_url']
+                url = upload_result['secure_url']
+                if not url.lower().endswith('.pdf'):
+                    url += '.pdf'
+
+                factura.archivo_pdf = url
             except Exception as e:
                 flash(f'Error al subir PDF: {str(e)}', 'danger')
                 return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura)
         else:
             flash('Solo se permiten archivos PDF.', 'danger')
             return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura)
-                        
-        db.session.commit()
-        flash('Factura actualizada correctamente con las órdenes seleccionadas!', 'success')
-        return redirect(url_for('facturacion'))
+                            
+            db.session.commit()
+            flash('Factura actualizada correctamente con las órdenes seleccionadas!', 'success')
+            return redirect(url_for('facturacion'))
 
     # Preseleccionar las órdenes que ya estaban asociadas
     if request.method == 'GET':
