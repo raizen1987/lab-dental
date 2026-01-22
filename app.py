@@ -598,7 +598,6 @@ def agregar_factura():
                     file,
                     public_id=public_id,
                     folder="facturas",
-                    resource_type="raw",
                     use_filename=False,
                     unique_filename=False,
                     overwrite=True
@@ -728,7 +727,6 @@ def editar_factura(id):
                     file,
                     public_id=public_id,
                     folder="facturas",
-                    resource_type="raw",
                     use_filename=False,
                     unique_filename=False,
                     overwrite=True
