@@ -255,7 +255,7 @@ def index():
 def doctores():
     
     query = Doctor.query
-    doctores = query.order_by(Doctor.nombre_completo.asc()).all()
+    doctores = query.order_by(Doctor.apellido.asc()).all()
     return render_template('doctores.html', doctores=doctores)
 
 @app.route('/doctores/agregar', methods=['GET', 'POST'])
