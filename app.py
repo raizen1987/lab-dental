@@ -253,7 +253,9 @@ def index():
 @app.route('/doctores')
 @login_required
 def doctores():
-    doctores = Doctor.query.all()
+    
+    query = Doctor.query
+    doctores = query.order_by(Doctor.id.asc()).all()
     return render_template('doctores.html', doctores=doctores)
 
 @app.route('/doctores/agregar', methods=['GET', 'POST'])
@@ -360,7 +362,9 @@ def borrar_doctor(id):
 @app.route('/tipos_trabajo')
 @login_required
 def tipos_trabajo():
-    tipos = TipoTrabajo.query.all()
+    
+    query = TipoTrabajo.query
+    tipos = query.order_by(TipoTrabajo.id.asc()).all()
     return render_template('tipos_trabajo.html', tipos=tipos)
 
 @app.route('/tipos_trabajo/agregar', methods=['GET', 'POST'])
@@ -413,6 +417,7 @@ def borrar_tipo_trabajo(id):
 @app.route('/trabajos')
 @login_required
 def trabajos():
+    
     query = TrabajoTipo.query
     trabajos = query.order_by(TrabajoTipo.id.asc()).all()
     return render_template('trabajos.html', trabajos=trabajos)
