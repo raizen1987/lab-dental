@@ -584,17 +584,20 @@ def agregar_factura():
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
-                # Nombre simple con timestamp para evitar conflictos
-                timestamp = int(time.time())
-                public_id = f"facturas/factura_{timestamp}"
+                # Nombre base sanitizado (sin extensión)
+                base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
 
+                # Forzamos .pdf en el public_id
+                public_id = f"facturas/{base_name}"
+
+                # Subir
                 upload_result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
                     folder="facturas",
                     resource_type="raw",
-                    use_filename=True,
-                    unique_filename=True,
+                    use_filename=False,
+                    unique_filename=False,
                     overwrite=True
                 )
 
@@ -603,7 +606,7 @@ def agregar_factura():
                     url += '.pdf'
 
                 nueva.archivo_pdf = url
-                print("PDF subido OK:", url)  # chequeá logs
+                print("PDF subido OK:", url)  # chequeá logs de Render
             except Exception as e:
                 flash(f'Error al subir PDF a Cloudinary: {str(e)}', 'danger')
                 print("Cloudinary error:", str(e))
@@ -720,17 +723,17 @@ def editar_factura(id):
                     public_id = factura.archivo_pdf.split('/')[-1].rsplit('.', 1)[0]
                     cloudinary.uploader.destroy(f"facturas/{public_id}", resource_type="raw")
 
-                # Nuevo con timestamp
-                timestamp = int(time.time())
-                public_id = f"facturas/factura_{timestamp}"
+                # Nuevo nombre
+                base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
+                public_id = f"facturas/{base_name}"
 
                 upload_result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
                     folder="facturas",
                     resource_type="raw",
-                    use_filename=True,
-                    unique_filename=True,
+                    use_filename=False,
+                    unique_filename=False,
                     overwrite=True
                 )
 
