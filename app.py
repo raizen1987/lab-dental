@@ -597,8 +597,7 @@ def agregar_factura():
                 upload_result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
-                    folder="facturas",
-                    resource_type="raw",
+                    folder="facturas", 
                     use_filename=False,           # no usamos el filename original
                     unique_filename=False,
                     overwrite=True
@@ -732,7 +731,6 @@ def editar_factura(id):
                     file,
                     public_id=public_id,
                     folder="facturas",
-                    resource_type="raw",
                     use_filename=False,
                     unique_filename=False,
                     overwrite=True
