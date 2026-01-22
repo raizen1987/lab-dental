@@ -9,7 +9,6 @@
     <table class="table table-striped table-hover table-bordered text-center">
         <thead class="table-dark">
             <tr>
-                <th>ID</th>
                 <th>Nombre</th>
                 <th>Valor Arancel</th>
                 <th>Acciones</th>
@@ -18,7 +17,6 @@
         <tbody>
             {% for trabajo in trabajos %}
             <tr>
-                <td class="fw-bold">{{ trabajo.id }}</td>
                 <td>{{ trabajo.nombre }}</td>
                 <td>
                     ${{ "%.2f"|format(trabajo.valor_arancel) if trabajo.valor_arancel else '0.00' }}
