@@ -587,34 +587,34 @@ def agregar_factura():
             try:
                 # Obtener nombre base sanitizado (sin extensión)
                 base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
-                
-                # Forzamos .pdf en el public_id
+
+                # Forzamos el nombre completo con .pdf en public_id
                 public_id = f"facturas/{base_name}"
 
                 # Subir a Cloudinary
                 upload_result = cloudinary.uploader.upload(
                     file,
-                    public_id=public_id,          # forzamos el nombre con carpeta
+                    public_id=public_id,              # forzamos el nombre + carpeta
                     resource_type="raw",
-                    use_filename=False,           # no usamos el filename original
+                    use_filename=False,
                     unique_filename=False,
                     overwrite=True
                 )
 
-                # La URL de Cloudinary NO siempre tiene .pdf, así que la forzamos
+                # La URL de Cloudinary debería terminar en .pdf
                 url = upload_result['secure_url']
                 if not url.lower().endswith('.pdf'):
-                    url += '.pdf'
+                    url = url.rsplit('.', 1)[0] + '.pdf' if '.' in url else url + '.pdf'
 
                 nueva.archivo_pdf = url
-                print(f"PDF subido OK: {url}")  # debug en logs de Render
+                print(f"PDF subido OK: {url}")  # para ver en logs de Render
             except Exception as e:
                 flash(f'Error al subir PDF a Cloudinary: {str(e)}', 'danger')
                 return render_template('factura_form.html', form=form, titulo='Nueva Factura', factura=nueva)
         else:
             flash('Solo se permiten archivos PDF.', 'danger')
             return render_template('factura_form.html', form=form, titulo='Nueva Factura', factura=nueva)
-            
+                
         db.session.add(nueva)
         db.session.flush()
         
@@ -720,12 +720,11 @@ def editar_factura(id):
             try:
                 # Borrar viejo si existe
                 if factura.archivo_pdf:
-                    # Extraer public_id (ej: facturas/nombre)
-                    parts = factura.archivo_pdf.split('/')
-                    public_id = '/'.join(parts[-2:]).rsplit('.', 1)[0]  # carpeta + nombre sin .pdf
-                    cloudinary.uploader.destroy(public_id, resource_type="raw")
+                    # Extraer public_id (facturas/nombre sin .pdf)
+                    public_id = factura.archivo_pdf.split('/')[-1].rsplit('.', 1)[0]
+                    cloudinary.uploader.destroy(f"facturas/{public_id}", resource_type="raw")
 
-                # Nuevo nombre
+                # Nuevo nombre con .pdf
                 base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
                 public_id = f"facturas/{base_name}"
 
@@ -741,7 +740,7 @@ def editar_factura(id):
 
                 url = upload_result['secure_url']
                 if not url.lower().endswith('.pdf'):
-                    url += '.pdf'
+                    url = url.rsplit('.', 1)[0] + '.pdf' if '.' in url else url + '.pdf'
 
                 factura.archivo_pdf = url
             except Exception as e:
