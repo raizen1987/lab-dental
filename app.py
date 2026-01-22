@@ -579,6 +579,9 @@ def agregar_factura():
             destinatario=form.destinatario.data,
             estado=form.estado.data,
         )
+                        
+        db.session.add(nueva)
+        db.session.flush()
         
     if 'archivo_pdf' in request.files and request.files['archivo_pdf'].filename != '':
         file = request.files['archivo_pdf']
@@ -614,9 +617,6 @@ def agregar_factura():
         else:
             flash('Solo se permiten archivos PDF.', 'danger')
             return render_template('factura_form.html', form=form, titulo='Nueva Factura', ordenes=ordenes, doctores=doctores)
-                
-        db.session.add(nueva)
-        db.session.flush()
         
         total = Decimal('0.00')
         for orden_id in form.ordenes.data:
