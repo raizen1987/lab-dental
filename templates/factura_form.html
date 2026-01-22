@@ -66,15 +66,15 @@
                 <input type="file" name="archivo_pdf" class="form-control" accept=".pdf" />
             </div>
             <small class="text-muted">Solo archivos PDF (máx. 5MB)</small>
-            {% if factura.archivo_pdf %}
-            <div class="mt-3">
-                <strong>Factura digital actual:</strong>
-                <a href="{{ factura.archivo_pdf }}" target="_blank" class="btn btn-sm btn-info ms-2">
-                    <i class="bi bi-file-earmark-pdf-fill"></i> Ver/Descargar PDF actual
-                </a>
-                <small class="text-muted ms-2">(Si subís uno nuevo, reemplazará este)</small>
-            </div>
-            {% endif %}
+        {% if factura and factura.archivo_pdf %}
+        <div class="mt-3">
+            <strong>Factura digital actual:</strong>
+            <a href="{{ factura.archivo_pdf }}" target="_blank" class="btn btn-sm btn-info ms-2">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Ver/Descargar PDF actual
+            </a>
+            <small class="text-muted ms-2">(Si subís uno nuevo, reemplazará este)</small>
+        </div>
+        {% endif %}
         </div>
     </div>
     <div class="mt-4 d-flex gap-2">
