@@ -96,12 +96,12 @@
                 <td>${{ "%.2f"|format(f.importe) }}</td>
                 <td>{{ f.estado }}</td>
                 <td>
-                    {% if factura.archivo_pdf %}
-                        <a href="{{ factura.archivo_pdf }}" target="_blank" class="btn btn-sm btn-info">
-                            <i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF
+                    {% if f.archivo_pdf %}
+                        <a href="{{ f.archivo_pdf }}" target="_blank" class="btn btn-sm btn-info">
+                            <i class="bi bi-file-earmark-pdf-fill"></i> Descargar
                         </a>
                     {% else %}
-                        <span class="text-muted">Sin factura digital</span>
+                        <span class="text-muted">Sin PDF</span>
                     {% endif %}
                 </td>
                 <td>
