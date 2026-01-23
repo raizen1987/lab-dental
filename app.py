@@ -583,7 +583,7 @@ def agregar_factura():
         db.session.add(nueva)
         db.session.flush()
         
-    if 'archivo_pdf' in request.files and request.files['archivo_pdf'].filename != '':
+    if 'archivo_pdf' in request.files:
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
@@ -617,10 +617,7 @@ def agregar_factura():
                 print("Cloudinary error:", str(e))
                 db.session.rollback()
                 return render_template('factura_form.html', form=form, titulo='Nueva Factura', ordenes=ordenes, doctores=doctores)
-        else:
-            flash('Solo se permiten archivos PDF.', 'danger')
-            return render_template('factura_form.html', form=form, titulo='Nueva Factura', ordenes=ordenes, doctores=doctores)
-        
+       
         total = Decimal('0.00')
         for orden_id in form.ordenes.data:
             orden = OrdenTrabajo.query.get(orden_id)
@@ -717,7 +714,7 @@ def editar_factura(id):
 
         factura.importe = total
     
-    if 'archivo_pdf' in request.files and request.files['archivo_pdf'].filename != '':
+    if 'archivo_pdf' in request.files:
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
@@ -768,9 +765,6 @@ def editar_factura(id):
             except Exception as e:
                 flash(f'Error al subir PDF: {str(e)}', 'danger')
                 return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura, ordenes=ordenes_disponibles, doctores=doctores)
-        else:
-            flash('Solo se permiten archivos PDF.', 'danger')
-            return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura, ordenes=ordenes_disponibles, doctores=doctores)
                             
         db.session.commit()
         flash('Factura actualizada correctamente con las órdenes seleccionadas!', 'success')
