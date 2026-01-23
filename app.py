@@ -587,27 +587,35 @@ def agregar_factura():
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
-                # Nombre base limpio
-                base_name = secure_filename(file.filename.rsplit('.', 1)[0])
+                # Nombre base limpio (sin extensión)
+                base_name = secure_filename(file.filename.rsplit('.', 1)[0]) if '.' in file.filename else secure_filename(file.filename)
 
-                # public_id SIN carpeta duplicada y SIN .pdf (Cloudinary lo agrega solo)
-                public_id = f"facturas/{base_name}"
+                # public_id SIN .pdf (Cloudinary lo agrega solo cuando detecta PDF)
+                public_id = f"{base_name}"
 
-                # Subimos como raw (para PDF)
+                # Subimos SIN resource_type="raw" (lo detecta como PDF y respeta extensión)
                 upload_result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
                     folder="facturas",
                     use_filename=False,
                     unique_filename=False,
-                    overwrite=True
+                    overwrite=True,
                 )
+                
+                # Modificamos la URL antes de commit: cambiamos 'image' por 'raw' (porque Cloudinary lo guarda como raw internamente)
+                url = upload_result['secure_url'].replace('/image/upload/', '/raw/upload/')
+                
+                url = url.replace('.pdf', '')
 
-                # La URL ya viene perfecta con .pdf
-                nueva.archivo_pdf = upload_result['secure_url']
+                # No agregamos .pdf manualmente (Cloudinary lo pone solo)
+                nueva.archivo_pdf = url
+            
                 print("PDF subido OK:", nueva.archivo_pdf)
             except Exception as e:
-                flash(f'Error al subir PDF: {str(e)}', 'danger')
+                flash(f'Error al subir PDF a Cloudinary: {str(e)}', 'danger')
+                print("Cloudinary error:", str(e))
+                db.session.rollback()
                 return render_template('factura_form.html', form=form, titulo='Nueva Factura', ordenes=ordenes, doctores=doctores)
         else:
             flash('Solo se permiten archivos PDF.', 'danger')
@@ -708,38 +716,65 @@ def editar_factura(id):
             total += orden.arancel
 
         factura.importe = total
-        
+    
     if 'archivo_pdf' in request.files and request.files['archivo_pdf'].filename != '':
         file = request.files['archivo_pdf']
         if file and file.filename.lower().endswith('.pdf'):
             try:
-                # Borrar viejo
+                # Borrar viejo si existe
                 if factura.archivo_pdf:
-                    # Extraer solo el nombre del archivo (sin carpetas ni .pdf)
-                    public_id = factura.archivo_pdf.split('/')[-1].rsplit('.', 1)[0]
-                    cloudinary.uploader.destroy(f"facturas/{public_id}", resource_type="raw")
+                # Extraemos SOLO la parte después de /upload/
+                    # Ej: "v1769137423/facturas/Comprobante_6" → quitamos 'vXXXX/'
+                    parts = factura.archivo_pdf.split('/upload/')
+                    if len(parts) > 1:
+                        public_id_full = parts[1]
+                        # Quitamos la versión 'vXXXX/' si existe
+                        if public_id_full.startswith('v'):
+                            public_id = public_id_full.split('/', 1)[1] if '/' in public_id_full else public_id_full
+                        else:
+                            public_id = public_id_full
 
-                # Nuevo
-                base_name = secure_filename(file.filename.rsplit('.', 1)[0])
-                public_id = f"facturas/{base_name}"
+                        # Quitamos la extensión si la tiene
+                        public_id = public_id.rsplit('.', 1)[0] if '.' in public_id else public_id
 
+                        # Destruimos
+                        result = cloudinary.uploader.destroy(public_id)
+                        print("Borrado viejo:", public_id, "Resultado:", result)
+                    else:
+                        print("URL inválida para borrar:", factura.archivo_pdf)
+
+                # Guardamos el nombre ORIGINAL del archivo (con extensión)
+                # Ej: "pago_EDESUR_0003069999.pdf" → lo sanitizamos pero mantenemos .pdf
+                original_filename = secure_filename(file.filename)
+                # Subimos usando el nombre original (Cloudinary lo respeta)
                 upload_result = cloudinary.uploader.upload(
                     file,
-                    public_id=public_id,
+                    public_id=f"{original_filename.rsplit('.', 1)[0]}",  # sin .pdf aquí
                     folder="facturas",
-                    use_filename=False,
+                    use_filename=True,              # ← clave: respeta el nombre original
                     unique_filename=False,
                     overwrite=True
                 )
 
-                factura.archivo_pdf = upload_result['secure_url']
+                # Modificamos la URL antes de commit: cambiamos 'image' por 'raw' (porque Cloudinary lo guarda como raw internamente)
+                url = upload_result['secure_url'].replace('/image/upload/', '/raw/upload/')
+                
+                url = url.replace('.pdf', '')
+
+                # No agregamos .pdf manualmente (Cloudinary lo pone solo)
+                factura.archivo_pdf = url
+
+                print("PDF subido OK:", url)
             except Exception as e:
                 flash(f'Error al subir PDF: {str(e)}', 'danger')
                 return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura, ordenes=ordenes_disponibles, doctores=doctores)
+        else:
+            flash('Solo se permiten archivos PDF.', 'danger')
+            return render_template('factura_form.html', form=form, titulo='Editar Factura', factura=factura, ordenes=ordenes_disponibles, doctores=doctores)
                             
-            db.session.commit()
-            flash('Factura actualizada correctamente con las órdenes seleccionadas!', 'success')
-            return redirect(url_for('facturacion'))
+        db.session.commit()
+        flash('Factura actualizada correctamente con las órdenes seleccionadas!', 'success')
+        return redirect(url_for('facturacion'))
 
     # Preseleccionar las órdenes que ya estaban asociadas
     if request.method == 'GET':
@@ -751,13 +786,41 @@ def editar_factura(id):
 @login_required
 def borrar_factura(id):
     factura = Facturacion.query.get_or_404(id)
-    # Chequeamos si tiene detalles (órdenes asociadas)
+
+    # Borrar el PDF en Cloudinary si existe
+    if factura.archivo_pdf:
+        try:
+            # Extraemos el public_id correctamente
+            # Ejemplo URL: https://res.cloudinary.com/dnnpusoff/raw/upload/v1769137423/facturas/Comprobante_6
+            # Queremos: "facturas/Comprobante_6"
+            parts = factura.archivo_pdf.split('/upload/')
+            if len(parts) > 1:
+                public_id_full = parts[1]
+                # Quitamos la versión 'vXXXX/' si existe
+                if public_id_full.startswith('v'):
+                    public_id = public_id_full.split('/', 1)[1] if '/' in public_id_full else public_id_full
+                else:
+                    public_id = public_id_full
+
+                # Borramos
+                result = cloudinary.uploader.destroy(public_id)
+                print("PDF borrado en Cloudinary:", public_id, "Resultado:", result)
+            else:
+                print("URL inválida para borrar en Cloudinary:", factura.archivo_pdf)
+        except Exception as e:
+            print("Error al borrar PDF en Cloudinary:", str(e))
+            # No hacemos rollback ni flash, seguimos borrando la factura aunque falle Cloudinary
+
+        # Chequeamos si tiene detalles (órdenes asociadas)
     if factura.detalles:  # si tiene al menos un detalle
         flash(f'No se puede borrar esta factura porque tiene {len(factura.detalles)} orden(es) asociada(s).', 'danger')
         return redirect(url_for('facturacion'))
+
+    # Borramos el registro de la BD
     db.session.delete(factura)
     db.session.commit()
-    flash('Factura borrada!', 'success')
+
+    flash('Factura borrada correctamente.', 'success')
     return redirect(url_for('facturacion'))
 
 # ---------------- ÓRDENES DE TRABAJO ----------------
@@ -1011,7 +1074,8 @@ with app.app_context():
          db.session.add_all([admin, usuario1, usuario2])
          db.session.commit()
          print("¡Usuarios creados correctamente!")
-
+         
+         
 if __name__ == '__main__':
    port = int(os.environ.get("PORT", 5000))
    app.run(host="0.0.0.0", port=port, debug=False)  # debug=False en producción! 
