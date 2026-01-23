@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            {{ form.nombre.label(class="form-label") }}
+            {{ form.nombre(class="form-control") }}
+        </div>
+        <div class="col-md-6 mb-3">
+            {{ form.apellido.label(class="form-label") }}
+            {{ form.apellido(class="form-control") }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            {{ form.clinica_particular.label(class="form-label") }}
+            {{ form.clinica_particular(class="form-control") }}
+        </div>
+        <div class="col-md-4 mb-3">
+            {{ form.cuit.label(class="form-label") }}
+            {{ form.cuit(class="form-control", placeholder="Ej: 20-32866591-4", pattern="\d{2}-\d{8}-\d{1}", title="Formato: XX-XXXXXXXX-X") }}
+                <div class="invalid-feedback">
+                    El CUIT debe tener el formato XX-XXXXXXXX-X (solo números y guiones).
+                </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            {{ form.telefono.label(class="form-label") }}
+            {{ form.telefono(class="form-control", placeholder="Ej: 1153462884", pattern="[0-9]+", title="Solo números (0-9)") }}
+            <div class="invalid-feedback">
+                Solo se permiten números (sin letras, espacios ni símbolos).
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            {{ form.provincia.label(class="form-label") }}
+            {{ form.provincia(class="form-control") }}
+        </div>
+        <div class="col-md-4 mb-3">
+            {{ form.localidad.label(class="form-label") }}
+            {{ form.localidad(class="form-control") }}
+        </div>
+        <div class="col-md-4 mb-3">
+            {{ form.direccion.label(class="form-label") }}
+            {{ form.direccion(class="form-control") }}
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        {{ form.medio_pago.label(class="form-label") }}
+        {{ form.medio_pago(class="form-control") }}
+    </div>
+    {{ form.submit(class="btn btn-success btn-lg") }}
+    <a href="{{ url_for('doctores') }}" class="btn btn-secondary btn-lg ms-2">Cancelar</a>
+</form>
+
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.querySelector('input[name="cuit"]');  // o name="cuit"
+
+    if (input) {
+        // Solo permite números (y guiones para CUIT) mientras escribís
+        input.addEventListener('input', function () {
+            // Para teléfono: solo números
+            // this.value = this.value.replace(/[^0-9]/g, '');
+
+            // Para CUIT: números y guiones
+            this.value = this.value.replace(/[^0-9-]/g, '');
+        });
+
+        // Validación final antes de enviar (opcional si ya usás pattern)
+        const form = input.closest('form');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                const valor = input.value.trim();
+                // Para teléfono: solo números
+                // if (valor === '' || !/^[0-9]+$/.test(valor)) {
+
+                // Para CUIT: formato XX-XXXXXXXX-X
+                if (valor === '' || !/^\d{2}-\d{8}-\d{1}$/.test(valor)) {
+                    e.preventDefault();
+                    input.classList.add('is-invalid');
+                    input.focus();
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            });
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.querySelector('input[name="telefono"]'); 
+
+    if (input) {
+        input.addEventListener('input', function () {
+            // Para teléfono: solo números
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+
+        // Validación final antes de enviar (opcional si ya usás pattern)
+        const form = input.closest('form');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                const valor = input.value.trim();
+                // Para teléfono: solo números
+                if (valor === '' || !/^[0-9]+$/.test(valor)) {
+                    e.preventDefault();
+                    input.classList.add('is-invalid');
+                    input.focus();
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            });
+        }
+    }
+});
+
+
+</script>
+
+{% endblock %}
