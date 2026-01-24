@@ -63,7 +63,7 @@
 
 <!-- TABLA -->
 <div class="table-responsive">
-    <table class="table table-striped table-hover table-bordered text-center" id="ordenesTable">
+    <table class="table table-sm table-striped table-hover table-bordered text-center" id="ordenesTable">
         <thead class="table-dark">
             <tr>
                 <th>ID</th>
@@ -78,6 +78,9 @@
                 <th>Inicio</th>
                 <th>Entrega</th>
                 <th>Arancel</th>
+                <th>Bonificación</th>
+                <th>% Bonificación</th>
+                <th>Importe Final</th>
                 <th>Indicaciones</th>
                 <th>Número Factura</th>
                 <th>Importe Factura</th>
@@ -101,7 +104,28 @@
                 <td>{{ o.cant_piezas }}</td>
                 <td>{{ o.fecha_inicio.strftime('%d/%m/%Y') }}</td>
                 <td>{{ o.fecha_entrega.strftime('%d/%m/%Y') }}</td>
-                <td>${{ "%.2f"|format(o.arancel) }}</td>
+                <td>${{ o.arancel|round(2) if o.arancel else '0.00' }}</td>
+                <td>
+                    {% if o.bonificacion %}
+                        <span class="badge bg-success">Sí</span>
+                    {% else %}
+                        <span class="badge bg-secondary">No</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if o.porcentaje_bonificacion and o.porcentaje_bonificacion > 0 %}
+                        {{ o.porcentaje_bonificacion }}%
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if o.importe_final %}
+                        ${{ o.importe_final|round(2) }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td>{{ o.indicaciones or '-' }}</td>
                 <td>
                     {% if o.detalles and o.detalles[0].factura %}
@@ -170,4 +194,12 @@ document.getElementById('exportExcel').addEventListener('click', function() {
     XLSX.writeFile(wb, 'ordenes_trabajo.xlsx');
 });
 </script>
+
+<style>
+.table-sm th, .table-sm td {
+    padding: 0.4rem !important;
+    font-size: 0.9rem;
+}
+</style>
+
 {% endblock %}
