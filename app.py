@@ -1,10 +1,11 @@
 from operator import or_
 from sqlite3 import IntegrityError
+from typing import Optional
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from sqlalchemy import func
-from wtforms import BooleanField, StringField, PasswordField, SubmitField, SelectField, DateField, DecimalField, HiddenField, IntegerField, TextAreaField
+from wtforms import BooleanField, FloatField, StringField, PasswordField, SubmitField, SelectField, DateField, DecimalField, HiddenField, IntegerField, TextAreaField
 from wtforms.validators import DataRequired, Regexp, Length, Email
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
@@ -20,9 +21,11 @@ from flask_wtf.file import FileField, FileAllowed, FileRequired
 import cloudinary
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
+from wtforms import StringField, PasswordField, BooleanField, SelectField, DateField, FloatField, DecimalField, FileField, SubmitField
+from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, Optional, NumberRange
+from decimal import Decimal
 
 app = Flask(__name__)
-
 
 app.config['SECRET_KEY'] = 'cambia_esto_por_un_secreto_fuerte'
 # Configuración de sesión con expiración por inactividad
@@ -131,6 +134,9 @@ class OrdenTrabajo(db.Model):
     arancel = db.Column(db.Numeric(10, 2), nullable=False)
     indicaciones = db.Column(db.String(200))
     estado_orden = db.Column(db.String(50), default='INICIADO')
+    bonificacion = db.Column(db.Boolean, default=False)           # checkbox
+    porcentaje_bonificacion = db.Column(db.Float, nullable=True)  # 10.0 = 10%
+    importe_final = db.Column(db.Numeric(10, 2), nullable=True)   # el arancel con descuento
 
     # Relación many-to-many con facturas a través de FacturaDetalle
     detalles = db.relationship('FacturaDetalle', back_populates='orden', cascade="all, delete-orphan")
@@ -199,6 +205,11 @@ class OrdenTrabajoForm(FlaskForm):
     arancel = DecimalField('Arancel', places=2, render_kw={"readonly": True})
     indicaciones = TextAreaField('Indicaciones', validators=[Length(max=200)])
     estado_orden = SelectField('Estado Orden', choices=[('Iniciado', 'Iniciado'), ('En Proceso', 'En Proceso'), ('Entregado', 'Entregado'), ('Finalizado', 'Finalizado')], validators=[DataRequired()])
+    bonificacion = BooleanField('¿Bonificación?', default=False)
+    porcentaje_bonificacion = FloatField('% Bonificación',validators=[Optional(),  # permite vacío
+        NumberRange(min=0, max=100, message="El porcentaje debe estar entre 0 y 100")], render_kw={"step": "0.01", "placeholder": "Ej: 15.5"}
+)
+    importe_final = DecimalField('Importe final con bonificación', render_kw={'readonly': True})
     submit = SubmitField('Guardar')
 
 class UserForm(FlaskForm):
@@ -617,7 +628,7 @@ def agregar_factura():
                 print("Cloudinary error:", str(e))
                 db.session.rollback()
                 return render_template('factura_form.html', form=form, titulo='Nueva Factura', ordenes=ordenes, doctores=doctores)
-       
+        
         total = Decimal('0.00')
         for orden_id in form.ordenes.data:
             orden = OrdenTrabajo.query.get(orden_id)
@@ -890,6 +901,8 @@ def agregar_orden_trabajo():
     
     if form.validate_on_submit():
         trabajo = TrabajoTipo.query.get(form.trabajo.data)
+        arancel_original = Decimal(str(trabajo.valor_arancel))  # aseguramos que sea Decimal
+        
         nueva = OrdenTrabajo(
             doctor_id=form.doctor.data,
             paciente=form.paciente.data,
@@ -902,8 +915,18 @@ def agregar_orden_trabajo():
             fecha_entrega=form.fecha_entrega.data,  # CAMBIADO
             arancel=trabajo.valor_arancel,
             indicaciones=form.indicaciones.data,
-            estado_orden=form.estado_orden.data
+            estado_orden=form.estado_orden.data,
+            bonificacion=form.bonificacion.data,
+            porcentaje_bonificacion=form.porcentaje_bonificacion.data if form.bonificacion.data else 0,
+            importe_final=arancel_original     
         )
+        
+        
+        porcentaje = Decimal(str(form.porcentaje_bonificacion.data)) if form.bonificacion.data else Decimal('0')
+
+        descuento = arancel_original * (porcentaje / Decimal('100'))
+        nueva.importe_final = arancel_original - descuento
+           
         db.session.add(nueva)
         db.session.commit()
         flash('Orden agregada!', 'success')
@@ -949,10 +972,27 @@ def editar_orden_trabajo(id):
         orden.arancel = trabajo.valor_arancel
         orden.indicaciones = form.indicaciones.data
         orden.estado_orden = form.estado_orden.data
+        orden.bonificacion = form.bonificacion.data
+        orden.porcentaje_bonificacion = form.porcentaje_bonificacion.data if form.bonificacion.data else 0
+
+        # Recalculamos arancel si cambió el trabajo
+        arancel_original = Decimal(str(trabajo.valor_arancel))  # aseguramos Decimal
+
+        # Calculamos importe final con bonificación
+        if orden.bonificacion and orden.porcentaje_bonificacion:
+            porcentaje = Decimal(str(orden.porcentaje_bonificacion))
+            descuento = arancel_original * (porcentaje / Decimal('100'))
+            orden.importe_final = arancel_original - descuento
+        else:
+            orden.importe_final = arancel_original
         
         db.session.commit()
         flash('Orden actualizada!', 'success')
         return redirect(url_for('ordenes_trabajo'))
+    
+    form.bonificacion.data = orden.bonificacion
+    form.porcentaje_bonificacion.data = orden.porcentaje_bonificacion
+    form.importe_final.data = orden.importe_final
     
     return render_template('orden_trabajo_form.html', form=form, titulo='Editar Orden de Trabajo',
                           doctores=doctores, tipos_trabajo=tipos_trabajo, trabajos=trabajos)
