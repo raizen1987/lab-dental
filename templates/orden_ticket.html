@@ -94,7 +94,7 @@
         Paciente: {{ orden.paciente}}<br>
         {% if orden.trabajo %}
         Descripción Trabajo: {{orden.trabajo.nombre or 'No especificado'}}<br>
-        Arancel: {{ orden.arancel or 'No especificado'}}<br>
+        Arancel: {{ orden.importe_final or 'No especificado'}}<br>
         {% endif %}
     </div>
 
@@ -109,5 +109,4 @@
     </div>
 
 </body>
-
 </html>
