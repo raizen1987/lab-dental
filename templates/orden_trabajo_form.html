@@ -3,7 +3,7 @@
 {% block content %}
 <h1 class="mb-4">{{ titulo }}</h1>
 
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
     {{ form.hidden_tag() }}
 
     <div class="row">
@@ -48,7 +48,29 @@
             </select>
         </div>
     </div>
-
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            {{ form.arancel.label(class="form-label") }}
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                {{ form.arancel(class="form-control", readonly=True) }}
+            </div>
+        </div>
+            <div class="col-md-4 mb-3">
+                {{ form.porcentaje_bonificacion.label(class="form-label") }}
+                {{ form.porcentaje_bonificacion(class="form-control", id="porcentaje_bonificacion", placeholder="Ej: 15.5", step="0.01", disabled=true) }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.importe_final.label(class="form-label") }}
+                {{ form.importe_final(class="form-control", id="importe_final", readonly=true) }}
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="form-check">
+                    {{ form.bonificacion(class="form-check-input", id="bonificacion_check") }}
+                    {{ form.bonificacion.label(class="form-check-label", for="bonificacion_check") }}
+                </div>
+            </div>
+    </div>
     <div class="row">
         <div class="col-md-4 mb-3">
             {{ form.maxilar.label(class="form-label") }}
@@ -61,13 +83,6 @@
         <div class="col-md-4 mb-3">
             {{ form.cant_piezas.label(class="form-label") }}
             {{ form.cant_piezas(class="form-control form-control-sm", readonly=True, id="cant_piezas") }}
-        </div>
-        <div class="col-md-4 mb-3">
-            {{ form.arancel.label(class="form-label") }}
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">$</span>
-                {{ form.arancel(class="form-control", readonly=True) }}
-            </div>
         </div>
     </div>
 
@@ -178,4 +193,69 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const checkBonif = document.getElementById('bonificacion_check');
+    const inputPorcentaje = document.getElementById('porcentaje_bonificacion');
+    const inputImporteFinal = document.getElementById('importe_final');
+    const inputArancel = document.querySelector('input[name="arancel"]');  // el campo arancel original
+
+    // Función para habilitar/deshabilitar % y recalcular
+    function actualizarBonificacion() {
+        if (checkBonif.checked) {
+            inputPorcentaje.disabled = false;
+            inputPorcentaje.classList.remove('bg-light', 'text-muted');
+            inputPorcentaje.classList.add('bg-white');
+        } else {
+            inputPorcentaje.disabled = true;
+            inputPorcentaje.classList.add('bg-light', 'text-muted');
+            inputPorcentaje.classList.remove('bg-white');
+            inputPorcentaje.value = '';  // limpiamos si desmarcan
+        }
+        calcularImporteFinal();
+    }
+
+    // Calcular importe final en vivo
+    function calcularImporteFinal() {
+        let arancel = parseFloat(inputArancel.value) || 0;
+        let porcentaje = parseFloat(inputPorcentaje.value) || 0;
+
+        if (checkBonif.checked && porcentaje > 0) {
+            let descuento = arancel * (porcentaje / 100);
+            let final = arancel - descuento;
+            inputImporteFinal.value = final.toFixed(2);
+        } else {
+            inputImporteFinal.value = arancel.toFixed(2);
+        }
+    }
+
+    // Eventos
+    checkBonif.addEventListener('change', actualizarBonificacion);
+    inputPorcentaje.addEventListener('input', calcularImporteFinal);
+    inputArancel.addEventListener('input', calcularImporteFinal);  // si cambia arancel original
+
+    // Inicializar estado
+    actualizarBonificacion();
+});
+</script>
+
+<style>
+.table-sm th, .table-sm td {
+    padding: 0.4rem !important;
+    font-size: 0.95rem;
+}
+
+.input-group-sm .form-control, .input-group-sm .input-group-text {
+    height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+#porcentaje_bonificacion:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+</style>
 {% endblock %}
