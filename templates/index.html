@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Ocultar menú en index (como pediste) */
+    .navbar-nav.me-auto { display: none !important; }
+</style>
+
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="display-4 text-primary">Bienvenido al Sistema del Laboratorio MV</h1>
+        <p class="lead text-muted">Seleccioná el módulo con el que querés trabajar</p>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
+        <div class="col">
+            <a href="{{ url_for('ordenes_trabajo') }}" class="btn btn-primary btn-lg w-100 p-5 shadow">
+                <i class="bi bi-list-check fs-1 mb-3 d-block"></i>
+                Órdenes de Trabajo
+            </a>
+        </div>
+        <div class="col">
+            <a href="{{ url_for('facturacion') }}" class="btn btn-success btn-lg w-100 p-5 shadow">
+                <i class="bi bi-receipt fs-1 mb-3 d-block"></i>
+                Facturación
+            </a>
+        </div>
+        <div class="col">
+            <a href="{{ url_for('doctores') }}" class="btn btn-info btn-lg w-100 p-5 shadow text-white">
+                <i class="bi bi-person-badge fs-1 mb-3 d-block"></i>
+                Doctores
+            </a>
+        </div>
+        <div class="col">
+            <a href="{{ url_for('tipos_trabajo') }}" class="btn btn-warning btn-lg w-100 p-5 shadow">
+                <i class="bi bi-tools fs-1 mb-3 d-block"></i>
+                Tipos de Trabajo
+            </a>
+        </div>
+        <div class="col">
+            <a href="{{ url_for('trabajos') }}" class="btn btn-secondary btn-lg w-100 p-5 shadow">
+                <i class="bi bi-book fs-1 mb-3 d-block"></i>
+                Trabajos (Catálogo)
+            </a>
+        </div>
+        {% if current_user.is_admin %}
+        <div class="col">
+            <a href="{{ url_for('usuarios') }}" class="btn btn-dark btn-lg w-100 p-5 shadow">
+                <i class="bi bi-people fs-1 mb-3 d-block"></i>
+                Usuarios (Admin)
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

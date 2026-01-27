@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Historial de Actualizaciones de Precios</h1>
+
+HTML<div class="d-flex gap-3 mb-4">
+    <a href="{{ url_for('actualizar_precios') }}" class="btn btn-warning">
+        <i class="bi bi-arrow-repeat"></i> Actualizar por IPC
+    </a>
+    <form action="{{ url_for('revertir_ultimo_periodo') }}" method="POST" style="display:inline;">
+        <button type="submit" class="btn btn-danger" 
+                onclick="return confirm('¿Seguro que querés REVERTIR la última actualización completa del mes y volver a los precios anteriores? Esto borra todo el historial de ese período y no se puede deshacer.')">
+            <i class="bi bi-arrow-counterclockwise"></i> Revertir Último Período
+        </button>
+    </form>
+</div>
+
+<!-- Filtro compacto, pegado a la izquierda, fondo blanco discreto -->
+<form method="GET" class="d-flex flex-wrap gap-3 mb-4 bg-white p-3 rounded shadow-sm" style="max-width: 315px;">
+    <div>
+        <label class="form-label small mb-1">Año</label>
+        <select name="ano" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% for a in anos %}
+            <option value="{{ a[0] }}" {% if request.args.get('ano') == a[0]|string %}selected{% endif %}>{{ a[0] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label class="form-label large mb-1">Mes</label>
+        <select name="mes" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% set meses_nombres = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'} %}
+            {% for m in meses %}
+            <option value="{{ m[0] }}" {% if request.args.get('mes') == m[0]|string %}selected{% endif %}>
+                {{ meses_nombres[m[0]] }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="align-self-end">
+        <button type="submit" class="btn btn-primary btn-sm px-4">Filtrar</button>
+    </div>
+</form>
+
+<!-- Tabla de historial -->
+{% if history %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover table-bordered text-center">
+        <thead class="table-info">
+            <tr>
+                <th>Trabajo</th>
+                <th>Precio Anterior</th>
+                <th>IPC Aplicado (%)</th>
+                <th>Precio Actual</th>
+                <th>Fecha de Actualización</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td>{{ h.trabajo.nombre }}</td>
+                <td>${{ "%.2f"|format(h.valor_arancel_viejo) }}</td>
+                <td>
+                    {% if h.ipc_aplicado %}
+                        {{ h.ipc_aplicado }} %
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>${{ "%.2f"|format(h.valor_arancel_nuevo) }}</td>
+                <td>{{ h.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-muted text-center mt-4">No hay actualizaciones de precios en el período seleccionado.</p>
+{% endif %}
+
+<br>
+<div class="mb-4">
+    <a href="{{ url_for('trabajos') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Volver a Trabajos (Catálogo)
+    </a>
+</div>
+
+
+{% endblock %}
