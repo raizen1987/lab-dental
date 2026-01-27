@@ -4,7 +4,7 @@ from typing import Optional
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
-from sqlalchemy import func
+from sqlalchemy import extract, func
 from wtforms import BooleanField, FloatField, StringField, PasswordField, SubmitField, SelectField, DateField, DecimalField, HiddenField, IntegerField, TextAreaField
 from wtforms.validators import DataRequired, Regexp, Length, Email
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -137,6 +137,7 @@ class OrdenTrabajo(db.Model):
     bonificacion = db.Column(db.Boolean, default=False)           # checkbox
     porcentaje_bonificacion = db.Column(db.Float, nullable=True)  # 10.0 = 10%
     importe_final = db.Column(db.Numeric(10, 2), nullable=True)   # el arancel con descuento
+    arancel_fijo = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
 
     # Relación many-to-many con facturas a través de FacturaDetalle
     detalles = db.relationship('FacturaDetalle', back_populates='orden', cascade="all, delete-orphan")
@@ -150,6 +151,15 @@ class FacturaDetalle(db.Model):
 
     factura = db.relationship('Facturacion', back_populates='detalles')
     orden = db.relationship('OrdenTrabajo', back_populates='detalles')
+    
+class ArancelHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    trabajo_id = db.Column(db.Integer, db.ForeignKey('trabajo_tipo.id'), nullable=False)
+    valor_arancel_viejo = db.Column(db.Numeric(10, 2), nullable=False)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow)
+    ipc_aplicado = db.Column(db.Float, nullable=True)  # % del IPC usado
+    trabajo = db.relationship('TrabajoTipo', backref='history')
+    valor_arancel_nuevo = db.Column(db.Numeric(10, 2), nullable=False)
 
 # ---------------- FORMS ----------------
 
@@ -209,7 +219,7 @@ class OrdenTrabajoForm(FlaskForm):
     porcentaje_bonificacion = FloatField('% Bonificación',validators=[Optional(),  # permite vacío
         NumberRange(min=0, max=100, message="El porcentaje debe estar entre 0 y 100")], render_kw={"step": "0.01", "placeholder": "Ej: 15.5"}
 )
-    importe_final = DecimalField('Importe final con bonificación', render_kw={'readonly': True})
+    importe_final = DecimalField('Importe final', render_kw={'readonly': True})
     submit = SubmitField('Guardar')
 
 class UserForm(FlaskForm):
@@ -224,6 +234,10 @@ class UserForm(FlaskForm):
     ])
     is_admin = BooleanField('Es Administrador')
     submit = SubmitField('Guardar')
+    
+class ActualizarPreciosForm(FlaskForm):
+    ipc_porcentaje = FloatField('IPC % del mes (ej: 2.8)', validators=[DataRequired(), NumberRange(min=0, max=100)])
+    submit = SubmitField('Actualizar Precios')
 
 # ---------------- ROUTES ----------------
 
@@ -428,10 +442,116 @@ def borrar_tipo_trabajo(id):
 @app.route('/trabajos')
 @login_required
 def trabajos():
-    
+    # Filtros
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+
+    # Lista de trabajos actuales
     query = TrabajoTipo.query
     trabajos = query.order_by(TrabajoTipo.nombre.asc()).all()
-    return render_template('trabajos.html', trabajos=trabajos)
+    
+    # History con filtro
+    query = ArancelHistory.query
+    if mes:
+        query = query.filter(extract('month', ArancelHistory.fecha_actualizacion) == mes)
+    if ano:
+        query = query.filter(extract('year', ArancelHistory.fecha_actualizacion) == ano)
+    history = query.order_by(ArancelHistory.fecha_actualizacion.desc()).all()
+
+    # Años y meses para el filtro
+    anos = db.session.query(extract('year', ArancelHistory.fecha_actualizacion).distinct()).all()
+    meses = db.session.query(extract('month', ArancelHistory.fecha_actualizacion).distinct()).all()
+
+    return render_template('trabajos.html', trabajos=trabajos, history=history, anos=anos, meses=meses)
+
+@app.route('/trabajos/precios_historial', methods=['GET', 'POST'])
+@login_required
+def precios_historial():
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+
+    query = ArancelHistory.query.join(TrabajoTipo)
+
+    if mes:
+        query = query.filter(extract('month', ArancelHistory.fecha_actualizacion) == mes)
+    if ano:
+        query = query.filter(extract('year', ArancelHistory.fecha_actualizacion) == ano)
+
+    history = query.order_by(TrabajoTipo.nombre.asc(), ArancelHistory.fecha_actualizacion.desc()).all()
+
+    anos = db.session.query(extract('year', ArancelHistory.fecha_actualizacion).distinct()).all()
+    meses = db.session.query(extract('month', ArancelHistory.fecha_actualizacion).distinct()).all()
+
+    return render_template('precios_historial.html', history=history, anos=anos, meses=meses)
+
+@app.route('/trabajos/actualizar_precios', methods=['GET', 'POST'])
+@login_required
+def actualizar_precios():
+    form = ActualizarPreciosForm()
+
+    if form.validate_on_submit():
+        ipc_porcentaje = form.ipc_porcentaje.data  # ej: 2.8
+        ipc = Decimal(str(ipc_porcentaje)) / Decimal('100')  # 0.028
+
+        trabajos = TrabajoTipo.query.all()
+        for trabajo in trabajos:
+            # Guardamos history del precio viejo
+            history = ArancelHistory(
+                trabajo_id=trabajo.id,
+                valor_arancel_viejo=trabajo.valor_arancel,
+                ipc_aplicado=ipc_porcentaje,
+                valor_arancel_nuevo = trabajo.valor_arancel + (trabajo.valor_arancel * ipc)
+            )
+            db.session.add(history)
+
+            # Actualizamos el precio actual con IPC (todo en Decimal)
+            aumento = trabajo.valor_arancel * ipc
+            trabajo.valor_arancel = trabajo.valor_arancel + aumento  # o * (Decimal('1') + ipc)
+
+        db.session.commit()
+        flash(f'Precios actualizados con IPC de {ipc_porcentaje}%!', 'success')
+        return redirect(url_for('trabajos'))
+
+    return render_template('actualizar_precios.html', form=form, titulo='Actualizar Precios por IPC')
+
+@app.route('/trabajos/revertir_ultimo_periodo', methods=['POST'])
+@login_required
+def revertir_ultimo_periodo():
+    # Encontramos la actualización MÁS RECIENTE para saber cuál fue el último período
+    ultimo_cambio = ArancelHistory.query.order_by(ArancelHistory.fecha_actualizacion.desc()).first()
+
+    if not ultimo_cambio:
+        flash('No hay actualizaciones recientes para revertir.', 'warning')
+        return redirect(url_for('precios_historial'))
+
+    # Obtenemos el mes y año del último cambio
+    mes_ultimo = ultimo_cambio.fecha_actualizacion.month
+    ano_ultimo = ultimo_cambio.fecha_actualizacion.year
+
+    # Encontramos TODOS los registros de ese mes/año
+    cambios_del_periodo = ArancelHistory.query.filter(
+        extract('month', ArancelHistory.fecha_actualizacion) == mes_ultimo,
+        extract('year', ArancelHistory.fecha_actualizacion) == ano_ultimo
+    ).all()
+
+    if not cambios_del_periodo:
+        flash('No se encontraron cambios en el último período.', 'warning')
+        return redirect(url_for('precios_historial'))
+
+    # Restauramos TODOS los precios viejos de ese período
+    for cambio in cambios_del_periodo:
+        trabajo = TrabajoTipo.query.get(cambio.trabajo_id)
+        if trabajo:
+            trabajo.valor_arancel = cambio.valor_arancel_viejo
+
+    # Borramos TODOS los registros de ese período
+    for cambio in cambios_del_periodo:
+        db.session.delete(cambio)
+
+    db.session.commit()
+
+    flash(f'Período {mes_ultimo}/{ano_ultimo} revertido. Precios restaurados al estado anterior.', 'success')
+    return redirect(url_for('precios_historial'))
 
 @app.route('/trabajos/agregar', methods=['GET', 'POST'])
 @login_required
@@ -901,8 +1021,7 @@ def agregar_orden_trabajo():
     
     if form.validate_on_submit():
         trabajo = TrabajoTipo.query.get(form.trabajo.data)
-        arancel_original = Decimal(str(trabajo.valor_arancel))  # aseguramos que sea Decimal
-        
+          
         nueva = OrdenTrabajo(
             doctor_id=form.doctor.data,
             paciente=form.paciente.data,
@@ -918,14 +1037,16 @@ def agregar_orden_trabajo():
             estado_orden=form.estado_orden.data,
             bonificacion=form.bonificacion.data,
             porcentaje_bonificacion=form.porcentaje_bonificacion.data if form.bonificacion.data else 0,
-            importe_final=arancel_original     
+            importe_final=trabajo.valor_arancel,              
+            arancel_fijo=trabajo.valor_arancel
         )
         
-        
-        porcentaje = Decimal(str(form.porcentaje_bonificacion.data)) if form.bonificacion.data else Decimal('0')
-
-        descuento = arancel_original * (porcentaje / Decimal('100'))
-        nueva.importe_final = arancel_original - descuento
+        # Calculamos importe_final usando el arancel_fijo (no el actual)
+        if nueva.bonificacion and nueva.porcentaje_bonificacion:
+            descuento = nueva.arancel_fijo * (Decimal(str(nueva.porcentaje_bonificacion)) / Decimal('100'))
+            nueva.importe_final = nueva.arancel_fijo - descuento
+        else:
+            nueva.importe_final = nueva.arancel_fijo
            
         db.session.add(nueva)
         db.session.commit()
@@ -938,28 +1059,34 @@ def agregar_orden_trabajo():
 @login_required
 def editar_orden_trabajo(id):
     orden = OrdenTrabajo.query.get_or_404(id)
-    
-    # 1. Cargar TODAS las opciones ANTES de crear el form (esto es lo que faltaba)
+      
     doctores = Doctor.query.order_by(Doctor.apellido, Doctor.nombre).all()
     tipos_trabajo = TipoTrabajo.query.order_by(TipoTrabajo.nombre).all()
     trabajos = TrabajoTipo.query.order_by(TrabajoTipo.nombre).all()
     
-    # 2. Crear el form con obj=orden (ahora ya tiene las choices listas)
     form = OrdenTrabajoForm(obj=orden)
     
-    # 3. Asignar choices (ya puede preseleccionar correctamente)
     form.doctor.choices = [(d.id, d.nombre_completo()) for d in doctores]
     form.tipo_trabajo.choices = [(t.id, t.nombre) for t in tipos_trabajo]
     form.trabajo.choices = [(t.id, t.nombre) for t in trabajos]
     
+    # Preseleccionar valores actuales (para GET)
     if request.method == 'GET':
         form.doctor.data = orden.doctor_id
         form.tipo_trabajo.data = orden.tipo_trabajo_id
         form.trabajo.data = orden.trabajo_id
-              
+        form.bonificacion.data = orden.bonificacion
+        form.porcentaje_bonificacion.data = orden.porcentaje_bonificacion
+        form.importe_final.data = orden.importe_final
+        form.arancel.data = orden.arancel_fijo
+        
+        print("DEBUG: arancel_fijo de la orden:", orden.arancel_fijo)
+    
     if form.validate_on_submit():
+        # Obtener el trabajo seleccionado (puede ser distinto al anterior)
         trabajo = TrabajoTipo.query.get(form.trabajo.data)
         
+        # Actualizar campos básicos
         orden.doctor_id = form.doctor.data
         orden.paciente = form.paciente.data
         orden.tipo_trabajo_id = form.tipo_trabajo.data
@@ -969,34 +1096,41 @@ def editar_orden_trabajo(id):
         orden.cant_piezas = form.cant_piezas.data
         orden.fecha_inicio = form.fecha_inicio.data
         orden.fecha_entrega = form.fecha_entrega.data
-        orden.arancel = trabajo.valor_arancel
         orden.indicaciones = form.indicaciones.data
         orden.estado_orden = form.estado_orden.data
+        
+        # Bonificación
         orden.bonificacion = form.bonificacion.data
         orden.porcentaje_bonificacion = form.porcentaje_bonificacion.data if form.bonificacion.data else 0
-
-        # Recalculamos arancel si cambió el trabajo
-        arancel_original = Decimal(str(trabajo.valor_arancel))  # aseguramos Decimal
-
-        # Calculamos importe final con bonificación
+        
+        # Lógica clave del arancel_fijo:
+        # Si cambió el trabajo → actualizar al valor actual del nuevo trabajo
+        if orden.trabajo_id != form.trabajo.data:
+            orden.arancel_fijo = Decimal(str(trabajo.valor_arancel))
+        # Si NO cambió el trabajo → mantener el arancel_fijo anterior (no tocarlo)
+        # (no hace falta else, ya está guardado)
+        
+        # Recalcular importe_final usando el arancel_fijo (nuevo o mantenido)
+        arancel_base = orden.arancel_fijo
         if orden.bonificacion and orden.porcentaje_bonificacion:
             porcentaje = Decimal(str(orden.porcentaje_bonificacion))
-            descuento = arancel_original * (porcentaje / Decimal('100'))
-            orden.importe_final = arancel_original - descuento
+            descuento = arancel_base * (porcentaje / Decimal('100'))
+            orden.importe_final = arancel_base - descuento
         else:
-            orden.importe_final = arancel_original
-        
+            orden.importe_final = arancel_base
+               
         db.session.commit()
         flash('Orden actualizada!', 'success')
         return redirect(url_for('ordenes_trabajo'))
     
+    # Prellenamos valores para edición
     form.bonificacion.data = orden.bonificacion
     form.porcentaje_bonificacion.data = orden.porcentaje_bonificacion
     form.importe_final.data = orden.importe_final
     
     return render_template('orden_trabajo_form.html', form=form, titulo='Editar Orden de Trabajo',
                           doctores=doctores, tipos_trabajo=tipos_trabajo, trabajos=trabajos)
-    
+        
 @app.route('/ordenes_trabajo/borrar/<int:id>', methods=['POST'])
 @login_required
 def borrar_orden_trabajo(id):
