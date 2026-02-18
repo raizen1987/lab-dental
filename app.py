@@ -46,7 +46,7 @@ cloudinary.config(
 )
 
 #En Render usar PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://lab_mv_db_8umv_user:63qIEDNC9hWIRxLqbMUxT7OiwkZa1CeZ@dpg-d5oga0e3jp1c73frhjr0-a.virginia-postgres.render.com/lab_mv_db_8umv?sslmode=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_qEwFopA6L3TO@ep-rapid-rice-aiygzh6h-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
