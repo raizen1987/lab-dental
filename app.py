@@ -138,6 +138,7 @@ class OrdenTrabajo(db.Model):
     porcentaje_bonificacion = db.Column(db.Float, nullable=True)  # 10.0 = 10%
     importe_final = db.Column(db.Numeric(10, 2), nullable=True)   # el arancel con descuento
     arancel_fijo = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    fecha_turno_paciente = db.Column(db.Date, nullable=True)
 
     # Relación many-to-many con facturas a través de FacturaDetalle
     detalles = db.relationship('FacturaDetalle', back_populates='orden', cascade="all, delete-orphan")
@@ -217,9 +218,9 @@ class OrdenTrabajoForm(FlaskForm):
     estado_orden = SelectField('Estado Orden', choices=[('Iniciado', 'Iniciado'), ('En Proceso', 'En Proceso'), ('Entregado', 'Entregado'), ('Finalizado', 'Finalizado')], validators=[DataRequired()])
     bonificacion = BooleanField('¿Bonificación?', default=False)
     porcentaje_bonificacion = FloatField('% Bonificación',validators=[Optional(),  # permite vacío
-        NumberRange(min=0, max=100, message="El porcentaje debe estar entre 0 y 100")], render_kw={"step": "0.01", "placeholder": "Ej: 15.5"}
-)
+        NumberRange(min=0, max=100, message="El porcentaje debe estar entre 0 y 100")], render_kw={"step": "0.01", "placeholder": "Ej: 15.5"})
     importe_final = DecimalField('Importe final', render_kw={'readonly': True})
+    fecha_turno_paciente = DateField('Fecha Turno Paciente', format='%Y-%m-%d', render_kw={'type': 'date'})    
     submit = SubmitField('Guardar')
 
 class UserForm(FlaskForm):
@@ -255,8 +256,7 @@ def login():
             # ¡Importante! remember=True + duración permanente
             login_user(user, remember=True, duration=timedelta(minutes=30))
             flash(f'¡Bienvenido, {user.nombre}!', 'success')
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('index'))
+            return redirect(url_for('index'))
         else:
             flash('Email o contraseña incorrecta', 'danger')
     
@@ -1038,7 +1038,8 @@ def agregar_orden_trabajo():
             bonificacion=form.bonificacion.data,
             porcentaje_bonificacion=form.porcentaje_bonificacion.data if form.bonificacion.data else 0,
             importe_final=trabajo.valor_arancel,              
-            arancel_fijo=trabajo.valor_arancel
+            arancel_fijo=trabajo.valor_arancel,
+            fecha_turno_paciente = form.fecha_turno_paciente.data
         )
         
         # Calculamos importe_final usando el arancel_fijo (no el actual)
@@ -1102,6 +1103,7 @@ def editar_orden_trabajo(id):
         # Bonificación
         orden.bonificacion = form.bonificacion.data
         orden.porcentaje_bonificacion = form.porcentaje_bonificacion.data if form.bonificacion.data else 0
+        orden.fecha_turno_paciente = form.fecha_turno_paciente.data
         
         # Lógica clave del arancel_fijo:
         # Si cambió el trabajo → actualizar al valor actual del nuevo trabajo
