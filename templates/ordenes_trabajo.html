@@ -77,6 +77,7 @@
                 <th>Cant. Piezas</th>
                 <th>Inicio</th>
                 <th>Entrega</th>
+                <th>Fecha Turno Paciente</th>
                 <th>Arancel</th>
                 <th>Bonificación</th>
                 <th>% Bonificación</th>
@@ -104,6 +105,7 @@
                 <td>{{ o.cant_piezas }}</td>
                 <td>{{ o.fecha_inicio.strftime('%d/%m/%Y') }}</td>
                 <td>{{ o.fecha_entrega.strftime('%d/%m/%Y') }}</td>
+                <td>{{ o.fecha_turno_paciente.strftime('%d/%m/%Y') if o.fecha_turno_paciente else '-' }}</td>
                 <td>${{ o.arancel_fijo|round(2) if o.arancel_fijo else '0.00' }}</td>
                 <td>
                     {% if o.bonificacion %}
